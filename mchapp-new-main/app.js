@@ -8,8 +8,8 @@ const fetch = require('node-fetch')
 
 
 require("dotenv").config()
-args = process.argv.slice(2)
-PORT = args[0] == "dev" ? process.env.DEVPORT : process.env.PORT
+
+const PORT = process.env.PORT || 3017;
 
 // const { Client: ClientDB } = require('pg')
 
@@ -1286,7 +1286,7 @@ io.on('connection', (socket) => {
     });
 });
 
-httpServer.listen(PORT, '0.0.0.0',() => { console.log("Running on Port: ", PORT) })
+httpServer.listen(PORT, '0.0.0.0', () => { console.log("Running on Port:", PORT); });
 
 // Sin uso
 function checkUserOld(username, pass) {

@@ -17,7 +17,8 @@ module.exports = {
       args: 'run dev',
       env: {
         NODE_ENV: 'development',
-        PORT: 3018
+        PORT: 3018,
+        NEXT_PUBLIC_API_URL: 'http://localhost:3016'
       }
     },
     {

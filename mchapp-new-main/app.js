@@ -1173,7 +1173,7 @@ io.on('connection', (socket) => {
 
     // Evento principal para procesar acciones de cerraduras
     socket.on('RequestLock', async (clientId, msgString) => {
-        console.log('🔐 RequestLock recibido de:', clientId);
+        console.log('🔐 [DEBUG] RequestLock recibido de:', clientId, 'con datos:', msgString);
 
         try {
             const dataJSON = JSON.parse(msgString);

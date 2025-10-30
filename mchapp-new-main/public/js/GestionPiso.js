@@ -220,6 +220,8 @@ const GestionPiso = {
                   idPiso: idPiso,
                   idTypeCode: elTypeCode ? parseInt(elTypeCode.value.trim()) : undefined
             };
+            // Log avanzado para depuración
+            console.log('[DEBUG] Enviando newCode:', JSON.stringify(dataJSON, null, 2));
             GestionPiso.emitRequestServer(dataJSON);
       },
 

@@ -1221,6 +1221,9 @@ io.on('connection', (socket) => {
                     }
                 };
 
+                // LOG AVANZADO: mostrar datos enviados a la API
+                console.log('🔎 apiData a enviar:', JSON.stringify(apiData, null, 2));
+
                 try {
                     // Llamar a la API REST pública para guardar el código
                     const apiUrl = `${Constants().API_REST}/api/public/apartments/${idPiso}/devices/${idDevice}/actions`;
@@ -1235,6 +1238,10 @@ io.on('connection', (socket) => {
                         body: JSON.stringify(apiData)
                     });
 
+                    // LOG AVANZADO: mostrar status y headers de la respuesta
+                    console.log('🔎 Respuesta API status:', apiResponse.status, apiResponse.statusText);
+                    console.log('🔎 Respuesta API headers:', JSON.stringify([...apiResponse.headers]));
+
                     if (apiResponse.ok) {
                         const result = await apiResponse.json();
                         console.log('✅ Código guardado exitosamente:', result);
@@ -1245,6 +1252,13 @@ io.on('connection', (socket) => {
                     } else {
                         const errorText = await apiResponse.text();
                         console.error('❌ Error de API:', errorText);
+                        // LOG AVANZADO: mostrar body de error parseado si es posible
+                        try {
+                            const errorJson = JSON.parse(errorText);
+                            console.error('❌ Error de API (JSON):', errorJson);
+                        } catch (e) {
+                            // No es JSON
+                        }
                         response.msg = 'Error al guardar el código en la base de datos';
                     }
                 } catch (apiError) {

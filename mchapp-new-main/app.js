@@ -42,7 +42,7 @@ const { Constants, RouteApp, getDataGitHub,
     getLabelTypeCard, processDataLog, getCardByTypeKey } = require("./modules/js/Util")()
 
 try {
-    Logs.init() // quitar solo para login de usuario y pisos
+    // Logs.init() // quitado temporalmente para evitar conexión a Google Sheets
 } catch (err) {
     console.log('error al iniciar google-spreadsheet');
 }

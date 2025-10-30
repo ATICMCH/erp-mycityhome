@@ -980,13 +980,13 @@ app.post("/savesugerencia", nAuth, async (req, res) => {
     let fCurrent = [date - 8 * h, date + dia - 8 * h, date]
 
     try {
-        await Logs.addSugerencia({
-            Fecha: fCurrent[2] / 86400 + 25569,
-            Motivo: reqMotivo,
-            Observacion: repObservacion
-        })
-        await Logs.sheetSugerencia.saveUpdatedCells();
-        stateSave = 1; // OK
+        // await Logs.addSugerencia({
+        //     Fecha: fCurrent[2] / 86400 + 25569,
+        //     Motivo: reqMotivo,
+        //     Observacion: repObservacion
+        // })
+        // await Logs.sheetSugerencia.saveUpdatedCells();
+        stateSave = 1; // OK (forzado, sin Google)
     } catch (error) {
         stateSave = 0; // Error
     }

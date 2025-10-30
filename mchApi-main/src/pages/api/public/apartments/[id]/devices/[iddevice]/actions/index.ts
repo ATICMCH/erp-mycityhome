@@ -93,17 +93,22 @@ const handler = nc(
             // key_data: req.body.key_data || null
 
             let dataDB: IActionsLogApartment | IErrorResponse = await el.insert(data)
-            
-            if ( !dataDB ) {
+
+            if (!dataDB) {
                   res.status(404).json({ error: 'data not found' })
                   return
             }
-            if ( ({ ...dataDB } as IErrorResponse).error ) {
+            // Si hay error, loguear detalle en consola
+            if (({ ...dataDB } as IErrorResponse).error) {
+                  const err = dataDB as IErrorResponse;
+                  if (err.data && Array.isArray(err.data) && err.data.length > 0) {
+                        console.error('❌ [VALIDACION] Detalle de error:', JSON.stringify(err.data, null, 2));
+                  }
                   // 409: conflicto con los datos enviados
-                  res.status(409).json(dataDB as IErrorResponse)
-                  return
+                  res.status(409).json(dataDB as IErrorResponse);
+                  return;
             }
-            
+
             res.json({ data: dataDB })
       })
 

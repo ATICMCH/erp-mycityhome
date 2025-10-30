@@ -26,7 +26,8 @@ module.exports = {
       script: 'npm',
       args: 'run dev',
       env: {
-        NODE_ENV: 'development'
+        NODE_ENV: 'development',
+	PORT: 3017
       }
     },
     {

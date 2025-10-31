@@ -1363,15 +1363,19 @@ io.on('connection', (socket) => {
                         const errorText = await apiResponse.text();
                         console.error('❌ Error de API:', errorText);
                         // LOG AVANZADO: mostrar body de error parseado si es posible
+                        let apiMsg = 'Error al guardar el código en la base de datos';
                         try {
                             const errorJson = JSON.parse(errorText);
                             console.error('❌ Error de API (JSON):', errorJson);
+                            if (errorJson && errorJson.error) {
+                                apiMsg = errorJson.error;
+                            }
                         } catch (e) {
                             // No es JSON
                         }
                         // LOG extra: dump de datos enviados
                         console.error('❌ Dump de apiData enviado:', JSON.stringify(apiData, null, 2));
-                        response.msg = 'Error al guardar el código en la base de datos';
+                        response.msg = apiMsg;
                     }
                 } catch (apiError) {
                     console.error('❌ Error llamando a la API:', apiError);

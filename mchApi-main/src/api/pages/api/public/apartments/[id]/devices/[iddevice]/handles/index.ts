@@ -67,7 +67,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     try {
       const handle = await createHandle(idDevice, etiqueta);
-      if (handle && handle.idmanija) {
+      if (handle) {
         res.status(201).json(handle);
       } else {
         res.status(500).json({ error: 'No se pudo crear la manija' });

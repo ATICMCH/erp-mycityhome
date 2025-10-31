@@ -1175,6 +1175,59 @@ io.on('connection', (socket) => {
     socket.on('RequestLock', async (clientId, msgString) => {
         console.log('🔐 [DEBUG] RequestLock recibido de:', clientId, 'con datos:', msgString);
 
+        // --- Lógica para asegurar existencia de dispositivo y manija ---
+        async function ensureDeviceAndManijaExist(idPiso, idDevice) {
+            const apiBase = `${Constants().API_REST}/api/public/apartments/${idPiso}`;
+            // 1. Verificar si el dispositivo existe
+            let deviceExists = false;
+            try {
+                const resDevice = await fetch(`${apiBase}/devices/${idDevice}`);
+                if (resDevice.ok) {
+                    deviceExists = true;
+                }
+            } catch (e) { deviceExists = false; }
+
+            // 2. Si no existe, crearlo
+            if (!deviceExists) {
+                // Crear dispositivo básico (ajustar campos según API real)
+                const deviceData = {
+                    id: idDevice,
+                    etiqueta: `Dispositivo ${idDevice}`,
+                    type: 'lock',
+                    estado: 1
+                };
+                await fetch(`${apiBase}/devices`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-user-id': '1' },
+                    body: JSON.stringify(deviceData)
+                });
+            }
+
+            // 3. Verificar si la manija existe (asumimos endpoint /handles)
+            let manijaExists = false;
+            try {
+                const resManija = await fetch(`${apiBase}/devices/${idDevice}/handles`);
+                if (resManija.ok) {
+                    const manijas = await resManija.json();
+                    manijaExists = Array.isArray(manijas) ? manijas.length > 0 : !!manijas;
+                }
+            } catch (e) { manijaExists = false; }
+
+            // 4. Si no existe, crear manija básica
+            if (!manijaExists) {
+                const manijaData = {
+                    id_dispositivo: idDevice,
+                    etiqueta: `Manija ${idDevice}`,
+                    estado: 1
+                };
+                await fetch(`${apiBase}/devices/${idDevice}/handles`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-user-id': '1' },
+                    body: JSON.stringify(manijaData)
+                });
+            }
+        }
+
         try {
             const dataJSON = JSON.parse(msgString);
             console.log('📦 Datos recibidos:', dataJSON);
@@ -1189,6 +1242,9 @@ io.on('connection', (socket) => {
             // Procesar comando newCode
             if (cmd === 'newCode') {
                 console.log('🆕 Procesando newCode para dispositivo:', idDevice, 'piso:', idPiso);
+
+                // --- Asegurar existencia de dispositivo y manija antes de crear código ---
+                await ensureDeviceAndManijaExist(idPiso, idDevice);
 
                 // Calcular timestamps
                 const now = new Date();

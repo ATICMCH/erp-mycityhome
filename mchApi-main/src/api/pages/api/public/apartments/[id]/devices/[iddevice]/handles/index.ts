@@ -11,7 +11,8 @@ async function getHandlesByDevice(idDevice: number) {
     values: [idDevice],
   };
   const result = await client.exeQuery(query);
-  return result;
+  // Filtra posibles errores y solo devuelve filas válidas
+  return (result as any[]).filter(row => !row.error);
 }
 
 // Utilidad para crear una manija
@@ -23,9 +24,9 @@ async function createHandle(idDevice: number, etiqueta: string) {
     values: [idDevice, etiqueta],
   };
   const result = await client.exeQuery(query);
-  if (result && result[0]) {
+  if (result && (result as any[])[0] && !(result as any[])[0].error) {
     // Normaliza el id de la manija para legacy
-    const row = result[0];
+    const row = (result as any[])[0];
     return {
       idmanija: row.idmanija || row.id || row.id_manija,
       ...row
@@ -49,7 +50,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === 'GET') {
     try {
       const handles = await getHandlesByDevice(idDevice);
-      res.status(200).json(handles.map(row => ({ idmanija: row.idmanija || row.id || row.id_manija, ...row })));
+      res.status(200).json(
+        (handles as any[]).map(row => ({
+          idmanija: row.idmanija || row.id || row.id_manija,
+          ...row
+        }))
+      );
     } catch (err) {
       res.status(500).json({ error: 'Error al obtener manijas', details: err });
     }

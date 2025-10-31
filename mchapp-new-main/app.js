@@ -1220,13 +1220,19 @@ io.on('connection', (socket) => {
 
             // 3. Verificar si la manija existe (asumimos endpoint /handles)
             let manijaExists = false;
+            let manijaId = null;
             try {
                 console.log(`[LOG] Verificando existencia de manija para dispositivo: ${idDevice}`);
                 const resManija = await fetch(`${apiBase}/devices/${idDevice}/handles`);
                 console.log(`[LOG] Respuesta verificación manija: status=${resManija.status}`);
                 if (resManija.ok) {
                     const manijas = await resManija.json();
-                    manijaExists = Array.isArray(manijas) ? manijas.length > 0 : !!manijas;
+                    if (Array.isArray(manijas) && manijas.length > 0) {
+                        manijaExists = true;
+                        manijaId = manijas[0].id || manijas[0].idmanija || manijas[0].id_manija || null;
+                    } else {
+                        manijaExists = false;
+                    }
                     console.log(`[LOG] Manijas encontradas:`, manijas);
                 }
             } catch (e) {
@@ -1249,7 +1255,10 @@ io.on('connection', (socket) => {
                         body: JSON.stringify(manijaData)
                     });
                     console.log(`[LOG] Respuesta creación manija: status=${resCreateManija.status}`);
-                    if (!resCreateManija.ok) {
+                    if (resCreateManija.ok) {
+                        const manijaCreated = await resCreateManija.json();
+                        manijaId = manijaCreated.id || manijaCreated.idmanija || manijaCreated.id_manija || null;
+                    } else {
                         const errText = await resCreateManija.text();
                         console.error(`[LOG] Error creando manija:`, errText);
                     }
@@ -1257,6 +1266,8 @@ io.on('connection', (socket) => {
                     console.error(`[LOG] Error lanzando POST para crear manija:`, e);
                 }
             }
+            // Devolver el id de la manija para usarlo en la creación de códigos
+            return manijaId;
         }
 
         try {
@@ -1275,7 +1286,7 @@ io.on('connection', (socket) => {
                 console.log('🆕 Procesando newCode para dispositivo:', idDevice, 'piso:', idPiso);
 
                 // --- Asegurar existencia de dispositivo y manija antes de crear código ---
-                await ensureDeviceAndManijaExist(idPiso, idDevice);
+                const manijaId = await ensureDeviceAndManijaExist(idPiso, idDevice);
 
                 // --- Verificar si ya existe el código para esa manija/dispositivo ---
                 try {
@@ -1327,7 +1338,8 @@ io.on('connection', (socket) => {
                         timestamp_fin: timestampFin,
                         fecha_vig_inicio: fechaVigInicio,
                         fecha_vig_fin: fechaVigFin,
-                        idtipocodigo: idTypeCode ? parseInt(idTypeCode) : 1
+                        idtipocodigo: idTypeCode ? parseInt(idTypeCode) : 1,
+                        idmanija: manijaId // <-- CRÍTICO: asociar el código a la manija correcta
                     }
                 };
 

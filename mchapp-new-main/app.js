@@ -1277,6 +1277,29 @@ io.on('connection', (socket) => {
                 // --- Asegurar existencia de dispositivo y manija antes de crear código ---
                 await ensureDeviceAndManijaExist(idPiso, idDevice);
 
+                // --- Verificar si ya existe el código para esa manija/dispositivo ---
+                try {
+                    const checkUrl = `${Constants().API_REST}/api/public/apartments/${idPiso}/devices/${idDevice}/codes?codigo=${encodeURIComponent(code)}`;
+                    console.log('[CHECK] Verificando existencia previa de código:', checkUrl);
+                    const checkResp = await fetch(checkUrl);
+                    if (checkResp.ok) {
+                        const checkData = await checkResp.json();
+                        if (Array.isArray(checkData) && checkData.length > 0) {
+                            // Ya existe el código
+                            response = {
+                                status: 0,
+                                msg: `El código ${code} ya existe para este dispositivo/manija. Usa uno diferente.`
+                            };
+                            socket.emit('ResponseSocketBluetooth', clientId, JSON.stringify(response));
+                            console.log('📤 Respuesta enviada:', response);
+                            return;
+                        }
+                    }
+                } catch (err) {
+                    console.error('[CHECK] Error verificando código existente:', err);
+                    // Si falla la verificación, seguimos pero lo logueamos
+                }
+
                 // Calcular timestamps
                 const now = new Date();
                 const timestampInicio = Math.floor(now.getTime() / 1000);

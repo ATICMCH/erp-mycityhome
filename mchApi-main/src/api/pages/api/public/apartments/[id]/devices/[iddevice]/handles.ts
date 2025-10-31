@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import Constants from 'src/api/helpers/Constants';
-import DbConnection from 'src/api/helpers/DbConnection';
+import Constants from '@/api/helpers/Constants';
+import DbConnection from '@/api/helpers/DbConnection';
 
 // Utilidad para obtener manijas de un dispositivo
 async function getHandlesByDevice(idDevice: number) {
@@ -27,13 +27,21 @@ async function createHandle(idDevice: number, etiqueta: string) {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { id, iddevice } = req.query;
+  // Next.js puede devolver los params como string o array
+  const id = Array.isArray(req.query.id) ? req.query.id[0] : req.query.id;
+  const iddevice = Array.isArray(req.query.iddevice) ? req.query.iddevice[0] : req.query.iddevice;
+
   if (!id || !iddevice) {
     res.status(400).json({ error: 'Faltan parámetros id o iddevice' });
     return;
   }
-  const idPiso = parseInt(id as string);
-  const idDevice = parseInt(iddevice as string);
+  const idPiso = parseInt(id as string, 10);
+  const idDevice = parseInt(iddevice as string, 10);
+
+  if (isNaN(idPiso) || isNaN(idDevice)) {
+    res.status(400).json({ error: 'Parámetros id o iddevice inválidos' });
+    return;
+  }
 
   if (req.method === 'GET') {
     // Listar manijas

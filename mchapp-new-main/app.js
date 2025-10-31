@@ -1237,7 +1237,7 @@ io.on('connection', (socket) => {
             // 4. Si no existe, crear manija básica
             if (!manijaExists) {
                 const manijaData = {
-                    id_dispositivo: idDevice,
+                    iddispositivo: idDevice,
                     etiqueta: `Manija ${idDevice}`,
                     estado: 1
                 };

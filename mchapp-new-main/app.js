@@ -1181,11 +1181,16 @@ io.on('connection', (socket) => {
             // 1. Verificar si el dispositivo existe
             let deviceExists = false;
             try {
+                console.log(`[LOG] Verificando existencia de dispositivo: ${idDevice} en piso: ${idPiso}`);
                 const resDevice = await fetch(`${apiBase}/devices/${idDevice}`);
+                console.log(`[LOG] Respuesta verificación dispositivo: status=${resDevice.status}`);
                 if (resDevice.ok) {
                     deviceExists = true;
                 }
-            } catch (e) { deviceExists = false; }
+            } catch (e) {
+                deviceExists = false;
+                console.error(`[LOG] Error verificando dispositivo:`, e);
+            }
 
             // 2. Si no existe, crearlo
             if (!deviceExists) {
@@ -1196,22 +1201,38 @@ io.on('connection', (socket) => {
                     type: 'lock',
                     estado: 1
                 };
-                await fetch(`${apiBase}/devices`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-user-id': '1' },
-                    body: JSON.stringify(deviceData)
-                });
+                console.log(`[LOG] Dispositivo no existe, creando:`, deviceData);
+                try {
+                    const resCreateDevice = await fetch(`${apiBase}/devices`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'x-user-id': '1' },
+                        body: JSON.stringify(deviceData)
+                    });
+                    console.log(`[LOG] Respuesta creación dispositivo: status=${resCreateDevice.status}`);
+                    if (!resCreateDevice.ok) {
+                        const errText = await resCreateDevice.text();
+                        console.error(`[LOG] Error creando dispositivo:`, errText);
+                    }
+                } catch (e) {
+                    console.error(`[LOG] Error lanzando POST para crear dispositivo:`, e);
+                }
             }
 
             // 3. Verificar si la manija existe (asumimos endpoint /handles)
             let manijaExists = false;
             try {
+                console.log(`[LOG] Verificando existencia de manija para dispositivo: ${idDevice}`);
                 const resManija = await fetch(`${apiBase}/devices/${idDevice}/handles`);
+                console.log(`[LOG] Respuesta verificación manija: status=${resManija.status}`);
                 if (resManija.ok) {
                     const manijas = await resManija.json();
                     manijaExists = Array.isArray(manijas) ? manijas.length > 0 : !!manijas;
+                    console.log(`[LOG] Manijas encontradas:`, manijas);
                 }
-            } catch (e) { manijaExists = false; }
+            } catch (e) {
+                manijaExists = false;
+                console.error(`[LOG] Error verificando manija:`, e);
+            }
 
             // 4. Si no existe, crear manija básica
             if (!manijaExists) {
@@ -1220,11 +1241,21 @@ io.on('connection', (socket) => {
                     etiqueta: `Manija ${idDevice}`,
                     estado: 1
                 };
-                await fetch(`${apiBase}/devices/${idDevice}/handles`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-user-id': '1' },
-                    body: JSON.stringify(manijaData)
-                });
+                console.log(`[LOG] Manija no existe, creando:`, manijaData);
+                try {
+                    const resCreateManija = await fetch(`${apiBase}/devices/${idDevice}/handles`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'x-user-id': '1' },
+                        body: JSON.stringify(manijaData)
+                    });
+                    console.log(`[LOG] Respuesta creación manija: status=${resCreateManija.status}`);
+                    if (!resCreateManija.ok) {
+                        const errText = await resCreateManija.text();
+                        console.error(`[LOG] Error creando manija:`, errText);
+                    }
+                } catch (e) {
+                    console.error(`[LOG] Error lanzando POST para crear manija:`, e);
+                }
             }
         }
 
@@ -1315,10 +1346,14 @@ io.on('connection', (socket) => {
                         } catch (e) {
                             // No es JSON
                         }
+                        // LOG extra: dump de datos enviados
+                        console.error('❌ Dump de apiData enviado:', JSON.stringify(apiData, null, 2));
                         response.msg = 'Error al guardar el código en la base de datos';
                     }
                 } catch (apiError) {
                     console.error('❌ Error llamando a la API:', apiError);
+                    // LOG extra: dump de datos enviados
+                    console.error('❌ Dump de apiData enviado:', JSON.stringify(apiData, null, 2));
                     response.msg = 'Error de conexión con la API';
                 }
             } else if (cmd === 'openLock') {

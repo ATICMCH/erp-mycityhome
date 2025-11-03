@@ -1,5 +1,6 @@
-
-import { loadDefaultErrorComponents } from "next/dist/server/load-components"
+// Nota: evitar importar APIs internas de Next.js como `loadDefaultErrorComponents`.
+// Esa importación provocaba errores con ciertas versiones de Next (no exportado).
+// Se eliminó la importación porque no se usa en este módulo.
 import { ActionType, CityType, CountryType, LocationDataType, ResultType, StatusDataType, TypeActionCardType, TypeCardType, TypeDeviceType, etapaType, horarioType, jornadaType } from "../types/GlobalTypes"
 
 import Constants from "./Constants"

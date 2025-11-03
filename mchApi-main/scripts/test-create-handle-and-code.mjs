@@ -42,15 +42,24 @@ async function createCode(idmanija) {
   endDate.setDate(endDate.getDate() + DAYS);
   const tsFin = Math.floor(endDate.getTime() / 1000);
 
-  const apiData = {
-    log_data: {
-      accion: 'Agregar código (test)',
-      resultado: '1',
-      usuario: 'test-script',
-      data: JSON.stringify({ codigo: CODE, dias: DAYS }),
-      tipo_ejecucion: 'Manual',
-      observacion: `Código ${CODE} creado por test`,
-    },
+    const apiData = {
+      log_data: {
+        accion: 'Agregar código (test)',
+        resultado: '1',
+        // incluir iddispositivo en log_data para compatibilidad con el backend
+        iddispositivo: idmanija,
+        usuario: 'test-script',
+        // El backend espera un objeto en log_data.data (con campos client, clientFrom, msg, ...)
+        data: {
+          codigo: CODE,
+          dias: DAYS,
+          client: 'test-script',
+          clientFrom: 'test-script',
+          msg: `Creando código ${CODE}`
+        },
+        tipo_ejecucion: 'Manual',
+        observacion: `Código ${CODE} creado por test`,
+      },
     code_data: {
       codigo: CODE.toString(),
       dias: DAYS,
@@ -104,7 +113,8 @@ async function run() {
       // Buscar en los candidatos
       for (const c of candidates) {
         if (!c || typeof c !== 'object') continue;
-        const id = c.idmanija || c.id || c.id_manija || c.idHandle || c.handleId || (c.data && (c.data.idmanija || c.data.id));
+        // Además de las variantes de idmanija, aceptar iddispositivo (schema actual)
+        const id = c.idmanija || c.id || c.id_manija || c.idHandle || c.handleId || c.iddispositivo || (c.data && (c.data.idmanija || c.data.id || c.data.iddispositivo));
         if (id) return id;
       }
       return null;
@@ -121,7 +131,14 @@ async function run() {
       return;
     }
 
-    const c = await createCode(idmanija);
+  // Además de pasar idmanija al payload del código, incluimos iddispositivo dentro de log_data
+  // porque el backend espera log_data.iddispositivo en muchas operaciones internas.
+  // Modificamos createCode para que reciba el valor y lo incluya en log_data.
+  // Para mantener compatibilidad, la función createCode usa code_data.idmanija y
+  // ahora también enviaremos log_data.iddispositivo.
+  // Llamamos a createCode pasándole el idmanija y la reescritura de payload interno
+  // añadirá log_data.iddispositivo.
+  const c = await createCode(idmanija);
     console.log('[TEST] Respuesta crear código status=', c.status);
     console.log('[TEST] Body:', JSON.stringify(c.data, null, 2));
     if (!c.ok) {

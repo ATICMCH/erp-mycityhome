@@ -174,6 +174,11 @@ class ActionsLogApartmentDataAccess implements IDataAccess<IActionsLogApartment>
       async insertActionNewCode(data: IActionsLogApartment): Promise<IActionsLogApartment | IErrorResponse> {
             let responseD = await this.client.execQueryPool( async (client): Promise<Array<IModel | IErrorResponse>> => {
                   const timeStampCurrent = UtilInstance.getDateCurrentForSQL()
+                  // Determinar id de la manija (puede venir en log_data.iddispositivo o en code_data.idmanija)
+                  const idManija = (data.log_data && (data.log_data as any).iddispositivo) || (data.code_data && data.code_data.idmanija) || BigInt(0)
+                  // Validación básica
+                  if (!idManija || idManija === 0) throw { code: 'CUSTOM', detail: '(idmanija)', msg: 'No se indicó idmanija/iddispositivo en el payload' } as IErrorSql
+
                   // Insert codigo
                   let queryData = {
                         name: 'insert-codigo',
@@ -195,7 +200,7 @@ class ActionsLogApartmentDataAccess implements IDataAccess<IActionsLogApartment>
                                     data.code_data!.timestamp_inicio, 
                                     data.code_data!.timestamp_fin, 
                                     timeStampCurrent, 
-                                    data.log_data.iddispositivo, 
+                                    idManija, 
                                     this.idUserLogin, 
                                     data.code_data!.fecha_vig_inicio,
                                     data.code_data!.fecha_vig_fin,
@@ -213,7 +218,7 @@ class ActionsLogApartmentDataAccess implements IDataAccess<IActionsLogApartment>
                               text: `UPDATE ${Constants.tbl_manija_sql} SET
                                     idcodigo = $1
                                     WHERE iddispositivo = $2 RETURNING *`,
-                              values: [ idCodeDB, data.log_data.iddispositivo ]
+                              values: [ idCodeDB, idManija ]
                         }
                         await client.query(queryData)
                   }
@@ -225,17 +230,19 @@ class ActionsLogApartmentDataAccess implements IDataAccess<IActionsLogApartment>
                         text: `UPDATE ${Constants.tbl_codigo_sql} SET
                                estado = 0
                                WHERE idmanija = $1 AND idtipocodigo = $2 AND estado = 1 AND id <> $3  RETURNING *`,
-                        values: [ data.log_data!.iddispositivo, data.code_data!.idtipocodigo, idCodeDB ]
+                        values: [ idManija, data.code_data!.idtipocodigo, idCodeDB ]
                   }
                   await client.query(queryData)
 
                   // Update actualización del dispositivo
+                  // Actualizamos fecha_ultimo_cambio del dispositivo (siempre referenciado por iddispositivo)
+                  const idDevice = (data.log_data && (data.log_data as any).iddispositivo) || idManija
                   queryData = {
                         name: 'update-dispositivo',
                         text: `UPDATE ${Constants.tbl_dispositivo_sql} SET
                                fecha_ultimo_cambio = $1
                                WHERE id = $2 RETURNING *`,
-                        values: [ timeStampCurrent, data.log_data.iddispositivo ]
+                        values: [ timeStampCurrent, idDevice ]
                   }
                   await client.query(queryData)
 

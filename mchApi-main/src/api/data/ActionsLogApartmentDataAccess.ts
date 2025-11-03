@@ -174,6 +174,26 @@ class ActionsLogApartmentDataAccess implements IDataAccess<IActionsLogApartment>
       async insertActionNewCode(data: IActionsLogApartment): Promise<IActionsLogApartment | IErrorResponse> {
             let responseD = await this.client.execQueryPool( async (client): Promise<Array<IModel | IErrorResponse>> => {
                   const timeStampCurrent = UtilInstance.getDateCurrentForSQL()
+                  // helper to run queries with debug logging on error
+                  const runQuery = async (queryData: any) => {
+                        try {
+                              return (await client.query(queryData)).rows
+                        } catch (err: any) {
+                              try {
+                                    console.error('insertActionNewCode - DB query error', {
+                                          message: err.message,
+                                          code: err.code,
+                                          detail: err.detail,
+                                          queryName: queryData && queryData.name,
+                                          queryText: queryData && queryData.text,
+                                          queryValues: queryData && queryData.values
+                                    })
+                              } catch (e) {
+                                    console.error('insertActionNewCode - DB query error (failed to stringify)', err)
+                              }
+                              throw err
+                        }
+                  }
                   // Determinar id de la manija (puede venir en log_data.iddispositivo o en code_data.idmanija)
                   const idManija = (data.log_data && (data.log_data as any).iddispositivo) || (data.code_data && data.code_data.idmanija) || BigInt(0)
                   // Validación básica
@@ -207,7 +227,7 @@ class ActionsLogApartmentDataAccess implements IDataAccess<IActionsLogApartment>
                                     data.code_data!.idtipocodigo
                               ]
                   }
-                  let lDataCode = (await client.query(queryData)).rows as Array<ICode | IErrorResponse>
+                  let lDataCode = await runQuery(queryData) as Array<ICode | IErrorResponse>
                   let codeDB = lDataCode[0] as ICode
 
                   let idCodeDB = codeDB.id || BigInt(0)
@@ -220,7 +240,7 @@ class ActionsLogApartmentDataAccess implements IDataAccess<IActionsLogApartment>
                                     WHERE iddispositivo = $2 RETURNING *`,
                               values: [ idCodeDB, idManija ]
                         }
-                        await client.query(queryData)
+                        await runQuery(queryData)
                   }
 
                   // Cambiamos el estado a 0 de todos los códigos del mismo tipo
@@ -232,7 +252,7 @@ class ActionsLogApartmentDataAccess implements IDataAccess<IActionsLogApartment>
                                WHERE idmanija = $1 AND idtipocodigo = $2 AND estado = 1 AND id <> $3  RETURNING *`,
                         values: [ idManija, data.code_data!.idtipocodigo, idCodeDB ]
                   }
-                  await client.query(queryData)
+                  await runQuery(queryData)
 
                   // Update actualización del dispositivo
                   // Actualizamos fecha_ultimo_cambio del dispositivo (siempre referenciado por iddispositivo)
@@ -244,7 +264,7 @@ class ActionsLogApartmentDataAccess implements IDataAccess<IActionsLogApartment>
                                WHERE id = $2 RETURNING *`,
                         values: [ timeStampCurrent, idDevice ]
                   }
-                  await client.query(queryData)
+                  await runQuery(queryData)
 
                   // insert logs
                   queryData = {
@@ -280,7 +300,7 @@ class ActionsLogApartmentDataAccess implements IDataAccess<IActionsLogApartment>
                                     data.log_data.observacion
                               ]
                   }
-                  let lData = (await client.query(queryData)).rows as Array<ILogsApartment | IErrorResponse>
+                  let lData = await runQuery(queryData) as Array<ILogsApartment | IErrorResponse>
 
                   const dataResponse: IActionsLogApartment = {
                         log_data: lData[0] as ILogsApartment,

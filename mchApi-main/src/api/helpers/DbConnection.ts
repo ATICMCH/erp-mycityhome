@@ -57,6 +57,21 @@ class DbConnection {
                               if ( _tmp ) _dataError = { ..._tmp }
                         }catch(e){}
                         
+                              // Log completo del error de la transacción para facilitar diagnóstico
+                              try {
+                                    const _err: any = err
+                                    console.error('[DEBUG] execQueryPool - transaction error:', _err && _err.message ? _err.message : _err)
+                                    if (_err.code) console.error('[DEBUG] execQueryPool - error.code:', _err.code)
+                                    if (_err.detail) console.error('[DEBUG] execQueryPool - error.detail:', _err.detail)
+                                    if (_err.stack) console.error('[DEBUG] execQueryPool - stack:', _err.stack)
+                                    // If the error contains query info (from upstream), print it
+                                    if (_err.query) {
+                                          try { console.error('[DEBUG] execQueryPool - error.query:', JSON.stringify(_err.query)) } catch(e) { console.error('[DEBUG] execQueryPool - error.query (raw):', _err.query) }
+                                    }
+                              } catch (logErr) {
+                                    console.error('[DEBUG] execQueryPool - failed to log error details', logErr)
+                              }
+
                         let errorCustom: IErrorSql = _dataError as IErrorSql
                         let errorDB = UtilInstance.getErrorSql(errorCustom.code, errorCustom.detail, errorCustom.msg)
                         if ( errorDB ) dataDB = [ { error: 'Error sql', data: [ errorDB ] } ]

@@ -7,7 +7,8 @@ async function getHandlesByDevice(idDevice: number) {
   const client = new DbConnection(false);
   const query = {
     name: 'get-handles-by-device',
-    text: `SELECT * FROM ${Constants.tbl_manija_sql} WHERE iddispositivo = $1 AND estado = 1`,
+    // la tabla actual no tiene columna 'estado' -> filtrar solo por iddispositivo
+    text: `SELECT * FROM ${Constants.tbl_manija_sql} WHERE iddispositivo = $1`,
     values: [idDevice],
   };
   const result = await client.exeQuery(query);
@@ -23,11 +24,31 @@ async function getHandlesByDevice(idDevice: number) {
 // Utilidad para crear una manija
 async function createHandle(idDevice: number, etiqueta: string) {
   const client = new DbConnection(false);
+  // si ya existe una manija para este dispositivo, devolverla (evita violar PK en iddispositivo)
+  try {
+    const existing = await client.exeQuery({
+      text: `SELECT * FROM ${Constants.tbl_manija_sql} WHERE iddispositivo = $1`,
+      values: [idDevice],
+    } as any);
+    if (existing && Array.isArray(existing) && existing.length > 0 && !(existing as any)[0].error) {
+      return (existing as any)[0];
+    }
+  } catch (e) {
+    // seguir con el insert si falló la comprobación
+  }
   const query = {
     name: 'insert-handle',
-    text: `INSERT INTO ${Constants.tbl_manija_sql} (iddispositivo, etiqueta, estado) VALUES ($1, $2, 1) RETURNING *`,
-    values: [idDevice, etiqueta],
+    // adaptar el INSERT al esquema real de la tabla tbl_manija
+    // columnas reales: iddispositivo, mac, idcodigo, codigo_permanente, bateria
+    // generamos un mac y un codigo_permanente aleatorio para crear la manija
+    text: `INSERT INTO ${Constants.tbl_manija_sql} (iddispositivo, mac, codigo_permanente, bateria) VALUES ($1, $2, $3, $4) RETURNING *`,
+    values: [idDevice, null, null, null],
   };
+  // generar valores por defecto
+  const genMac = 'MC' + Math.random().toString(16).slice(2, 14).toUpperCase();
+  const genCode = (Math.floor(Math.random() * 90000000) + 10000000).toString(); // 8 dígitos
+  const _values: any[] = [idDevice, genMac, genCode, null];
+  query.values = _values;
   const result = await client.exeQuery(query);
   // DEBUG: log DB result to pm2 logs for diagnosis
   try {

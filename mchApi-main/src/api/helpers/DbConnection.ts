@@ -85,6 +85,18 @@ class DbConnection {
                                                 dataDB = [ ...result.rows ]
                                           })
                                           .catch(err => {
+                                                // Log completo para depuración: mensaje, código, detalle y query
+                                                try {
+                                                      console.log('[DEBUG] exeQuery error: message=', (err && err.message) || err)
+                                                      console.log('[DEBUG] exeQuery error code=', (err && err.code) || 'N/A')
+                                                      console.log('[DEBUG] exeQuery error detail=', (err && (err.detail || err.msg)) || 'N/A')
+                                                      console.log('[DEBUG] exeQuery query text=', (query && (query as any).text) || 'N/A')
+                                                      console.log('[DEBUG] exeQuery query values=', (query && (query as any).values) || 'N/A')
+                                                      if ((err as any).stack) console.log('[DEBUG] exeQuery stack:', (err as any).stack)
+                                                } catch (e) {
+                                                      console.log('[DEBUG] exeQuery error while logging error:', e)
+                                                }
+
                                                 let errorCustom: IErrorSql = err as IErrorSql
                                                 let errorDB = UtilInstance.getErrorSql(errorCustom.code, errorCustom.detail)
                                                 // console.log(errorCustom)

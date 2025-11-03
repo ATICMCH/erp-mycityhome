@@ -1229,7 +1229,8 @@ io.on('connection', (socket) => {
                     const manijas = await resManija.json();
                     if (Array.isArray(manijas) && manijas.length > 0) {
                         manijaExists = true;
-                        manijaId = manijas[0].id || manijas[0].idmanija || manijas[0].id_manija || null;
+                        // Aceptar múltiples formas de id retornadas por la API: id, idmanija, id_manija o iddispositivo
+                        manijaId = manijas[0].id || manijas[0].idmanija || manijas[0].id_manija || manijas[0].iddispositivo || null;
                     } else {
                         manijaExists = false;
                     }
@@ -1255,9 +1256,10 @@ io.on('connection', (socket) => {
                         body: JSON.stringify(manijaData)
                     });
                     console.log(`[LOG] Respuesta creación manija: status=${resCreateManija.status}`);
-                    if (resCreateManija.ok) {
+                        if (resCreateManija.ok) {
                         const manijaCreated = await resCreateManija.json();
-                        manijaId = manijaCreated.id || manijaCreated.idmanija || manijaCreated.id_manija || null;
+                        // La API puede devolver id/idmanija/id_manija o iddispositivo: usarlo como id de la manija
+                        manijaId = manijaCreated.id || manijaCreated.idmanija || manijaCreated.id_manija || manijaCreated.iddispositivo || null;
                     } else {
                         const errText = await resCreateManija.text();
                         console.error(`[LOG] Error creando manija:`, errText);

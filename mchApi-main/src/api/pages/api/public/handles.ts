@@ -7,23 +7,30 @@ async function getHandlesByDevice(idDevice: number) {
   const client = new DbConnection(false);
   const query = {
     name: 'get-handles-by-device',
-    text: `SELECT * FROM ${Constants.tbl_manija_sql} WHERE iddispositivo = $1 AND estado = 1`,
+    // la tabla tbl_manija no tiene columna 'estado' en esta base -> filtrar solo por iddispositivo
+    text: `SELECT * FROM ${Constants.tbl_manija_sql} WHERE iddispositivo = $1`,
     values: [idDevice],
   };
   const result = await client.exeQuery(query);
+  try { console.log('[DEBUG] getHandlesByDevice (public/handles) result:', JSON.stringify(result)); } catch (e) { console.log('[DEBUG] getHandlesByDevice (public/handles) result (no JSON):', result); }
   return result;
 }
 
 // Utilidad para crear una manija
 async function createHandle(idDevice: number, etiqueta: string) {
   const client = new DbConnection(false);
+  // evitar insertar en columna inexistente 'etiqueta' -> usar columnas reales
+  const genMac = 'MC' + Math.random().toString(16).slice(2, 14).toUpperCase();
+  const genCode = (Math.floor(Math.random() * 90000000) + 10000000).toString();
+  const bateriaDefault = 0;
   const query = {
     name: 'insert-handle',
-    text: `INSERT INTO ${Constants.tbl_manija_sql} (iddispositivo, etiqueta, estado) VALUES ($1, $2, 1) RETURNING *`,
-    values: [idDevice, etiqueta],
+    text: `INSERT INTO ${Constants.tbl_manija_sql} (iddispositivo, mac, codigo_permanente, bateria) VALUES ($1, $2, $3, $4) RETURNING *`,
+    values: [idDevice, genMac, genCode, bateriaDefault],
   };
   const result = await client.exeQuery(query);
-  return result;
+  try { console.log('[DEBUG] createHandle (public/handles) raw result:', JSON.stringify(result)); } catch (e) { console.log('[DEBUG] createHandle (public/handles) raw result (no JSON):', result); }
+  return result && result[0];
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {

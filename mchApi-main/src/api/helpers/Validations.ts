@@ -43,7 +43,13 @@ class Validations {
        * @returns 
        */
       checkFormatDateTimeSQL(value: string): boolean {
-            return /\d{2,4}-\d{1,2}-\d{1,2} (0[1-9]|1\d|2[0-3]):([0-5]\d):([0-5]\d)$/.test(value)
+            if (!value || typeof value !== 'string') return false
+            // Aceptar dos formatos comunes:
+            // 1) YYYY-MM-DD HH:MM:SS (espacio)
+            // 2) ISO 8601: YYYY-MM-DDTHH:MM:SS(.sss)Z o sin Z
+            const sqlLike = /^\d{4}-\d{2}-\d{2} (0[0-9]|1\d|2[0-3]):([0-5]\d):([0-5]\d)$/
+            const isoLike = /^\d{4}-\d{2}-\d{2}T(0[0-9]|1\d|2[0-3]):([0-5]\d):([0-5]\d)(?:\.\d+)?Z?$/
+            return sqlLike.test(value) || isoLike.test(value)
       }
 
       /**

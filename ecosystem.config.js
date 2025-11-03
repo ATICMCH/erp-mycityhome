@@ -28,7 +28,7 @@ module.exports = {
       args: 'run dev',
       env: {
         NODE_ENV: 'development',
-        PORT: 3017
+	PORT: 3017
       }
     },
     {

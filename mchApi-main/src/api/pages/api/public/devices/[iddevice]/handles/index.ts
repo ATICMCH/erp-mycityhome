@@ -11,6 +11,12 @@ async function getHandlesByDevice(idDevice: number) {
     values: [idDevice],
   };
   const result = await client.exeQuery(query);
+  // DEBUG: log DB result to pm2 logs for diagnosis
+  try {
+    console.log('[DEBUG] getHandlesByDevice result:', JSON.stringify(result));
+  } catch (e) {
+    console.log('[DEBUG] getHandlesByDevice result (no JSON):', result);
+  }
   return result;
 }
 
@@ -23,6 +29,12 @@ async function createHandle(idDevice: number, etiqueta: string) {
     values: [idDevice, etiqueta],
   };
   const result = await client.exeQuery(query);
+  // DEBUG: log DB result to pm2 logs for diagnosis
+  try {
+    console.log('[DEBUG] createHandle raw result:', JSON.stringify(result));
+  } catch (e) {
+    console.log('[DEBUG] createHandle raw result (no JSON):', result);
+  }
   return result && result[0];
 }
 
@@ -53,7 +65,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     try {
       const handle = await createHandle(idDevice, etiqueta);
-      if (handle && (handle.idmanija || handle.id || handle.id_manija)) {
+      // evitar errores de compilación TS sobre propiedades inexistentes en la unión de tipos
+      const createdId = handle && (((handle as any).idmanija ?? (handle as any).id) ?? (handle as any).id_manija);
+      if (handle && createdId) {
         res.status(201).json(handle);
       } else {
         res.status(500).json({ error: 'No se pudo crear la manija' });

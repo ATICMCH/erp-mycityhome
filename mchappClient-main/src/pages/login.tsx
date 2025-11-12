@@ -22,11 +22,8 @@ const Login = () => {
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
-    alert('SUBMIT');
     e.preventDefault()
     const Response = await userService.authUser(credentials, () => { setIsError(true) })
-    console.log('LOGIN RESPONSE:', Response);
-    alert('LOGIN RESPONSE: ' + JSON.stringify(Response));
     if (!Response) return
 
         const _rolMain = Response.data?.roles.find(el => el.ismain === true)
@@ -39,8 +36,6 @@ const Login = () => {
             localStorage.setItem('idlogin', Response.data.id.toString())
             if (Response.token) {
                 localStorage.setItem('token', Response.token)
-            } else {
-                console.warn('NO TOKEN FOUND IN LOGIN RESPONSE');
             }
         }
     }

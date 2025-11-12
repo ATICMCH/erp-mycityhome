@@ -25,6 +25,7 @@ const Login = () => {
         e.preventDefault()
         const Response = await userService.authUser(credentials, () => { setIsError(true) })
         console.log('LOGIN RESPONSE:', Response);
+        alert('LOGIN RESPONSE: ' + JSON.stringify(Response));
         if (!Response) return
 
         const _rolMain = Response.data?.roles.find(el => el.ismain === true)

@@ -80,12 +80,7 @@ const Login = () => {
                                 </div>
                                 
                                 <button type="submit" className="border-0 mt-4 c-bg-0 transform hover:scale-110 transition-transform duration-200">
-                                    <span className="sr-only">Entrar</span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80" fill="none">
-                                        <circle cx="40" cy="40" r="38" stroke="#009FE3" strokeWidth="4" fill="#fff"/>
-                                        <path d="M25 45L40 30L55 45" stroke="#009FE3" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
-                                        <rect x="32" y="45" width="16" height="10" stroke="#009FE3" strokeWidth="4" fill="#fff"/>
-                                    </svg>
+                                    <img src="/img/ico/HomeLogin.svg" alt="Entrar" style={{ width: 80, height: 80 }} />
                                 </button>
 
                                 {isError && (

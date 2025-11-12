@@ -7,32 +7,12 @@ class Middleware {
 
       constructor() {}
 
-        verifyToken(req: NextApiRequest, res: NextApiResponse<IErrorResponse>, next: NextHandler): void {            
-                  let token: string | undefined;
-                  if (req.cookies.session_token) {
-                        token = (req.cookies.session_token as string).replace(/['"]+/g, '');
-                  } else {
-                        // Permitir token en 'token' o en 'authorization' (Bearer)
-                        if (req.headers.token) {
-                              token = (req.headers.token as string).replace(/['"]+/g, '');
-                        } else if (req.headers.authorization) {
-                              const authHeader = req.headers.authorization as string;
-                              if (authHeader.startsWith('Bearer ')) {
-                                    token = authHeader.slice(7).trim();
-                              } else {
-                                    token = authHeader.trim();
-                              }
-                        } else {
-                              res.status(400).json({ error: 'Send token on headers' });
-                              return;
-                        }
-                  }
-
-            // Permitir acceso a cualquier usuario, sin validar token ni roles
-            req.headers.filterStatus = '1'
-            req.headers.iduser = '1'
-            req.headers.username = 'test'
-            next()
+        verifyToken(req: NextApiRequest, res: NextApiResponse<IErrorResponse>, next: NextHandler): void {
+            // Permitir acceso a cualquier usuario, sin validar token ni roles ni token
+            req.headers.filterStatus = '1';
+            req.headers.iduser = '1';
+            req.headers.username = 'test';
+            next();
       }
 
       validateToken(req: NextApiRequest, res: NextApiResponse<IErrorResponse>, next: NextHandler): void {            

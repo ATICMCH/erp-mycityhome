@@ -51,7 +51,7 @@ const Login = () => {
                 <Fade top>
                     <div className="c-login-form c-rounded-large c-shadow-large">
                         <div className="card-body flex flex-col items-center text-primary">
-                            <form onSubmit={handleSubmit} className="w-full flex flex-col items-center">
+                            <form onSubmit={handleSubmit} className="w-full flex flex-col items-center" autoComplete="off">
                                 <img
                                     src="/img/ico/LogoWhite.svg"
                                     className='c-logo-login'
@@ -85,12 +85,7 @@ const Login = () => {
                                 </div>
                                 
                                 <button type="submit" className="border-0 mt-4 c-bg-0 transform hover:scale-110 transition-transform duration-200">
-                                    <img
-                                        className='c-btnLogin'
-                                        src="/img/ico/icoArrow.svg"
-                                        style={{width: 120, height: 120}}
-                                        alt="Login"
-                                    />
+                                    PRUEBA123
                                 </button>
 
                                 {isError && (

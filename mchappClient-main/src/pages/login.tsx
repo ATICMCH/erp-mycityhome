@@ -80,13 +80,11 @@ const Login = () => {
                                 </div>
                                 
                                 <button type="submit" className="border-0 mt-4 c-bg-0 transform hover:scale-110 transition-transform duration-200">
-                                    PRUEBA123
+                                    Entrar
                                 </button>
 
                                 {isError && (
-                                    <p className="text-red-500 mt-4 text-center">
-                                        Usuario o contraseña incorrectos
-                                    </p>
+                                    <p className="text-red-500 mt-4 text-center">Usuario o contraseña incorrectos</p>
                                 )}
                             </form>
                         </div>

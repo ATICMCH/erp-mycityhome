@@ -7,20 +7,26 @@ class Middleware {
 
       constructor() {}
 
-      verifyToken(req: NextApiRequest, res: NextApiResponse<IErrorResponse>, next: NextHandler): void {            
-            let token:string
-            if(req.cookies.session_token)
-            {
-                token = (req.cookies.session_token as string).replace(/['"]+/g, '')
-            }
-            else{
-                if (!req.headers.token) {
-                    // 406: NO INTERPRETA SOLICITUD
-                    res.status(400).json({ error: 'Send token on headers' })
-                    return
-              }
-              token = (req.headers.token as string).replace(/['"]+/g, '')
-            }
+        verifyToken(req: NextApiRequest, res: NextApiResponse<IErrorResponse>, next: NextHandler): void {            
+                  let token: string | undefined;
+                  if (req.cookies.session_token) {
+                        token = (req.cookies.session_token as string).replace(/['"]+/g, '');
+                  } else {
+                        // Permitir token en 'token' o en 'authorization' (Bearer)
+                        if (req.headers.token) {
+                              token = (req.headers.token as string).replace(/['"]+/g, '');
+                        } else if (req.headers.authorization) {
+                              const authHeader = req.headers.authorization as string;
+                              if (authHeader.startsWith('Bearer ')) {
+                                    token = authHeader.slice(7).trim();
+                              } else {
+                                    token = authHeader.trim();
+                              }
+                        } else {
+                              res.status(400).json({ error: 'Send token on headers' });
+                              return;
+                        }
+                  }
 
             const { status, error, iduser, username, roles } = UtilInstance.checkToken(token)
             if ( !status ) {

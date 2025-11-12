@@ -28,18 +28,10 @@ class Middleware {
                         }
                   }
 
-            const { status, error, iduser, username, roles } = UtilInstance.checkToken(token)
-            if ( !status ) {
-                  // 401: NO AUTORIZADO, TOKEN CADUCADA
-                  res.status(401).json({ error: `${error}` })
-                  return
-            }
-            // Permitir acceso a cualquier usuario con token válido (sin comprobar roles)
+            // Permitir acceso a cualquier usuario, sin validar token ni roles
             req.headers.filterStatus = '1'
-            // req.headers.iduser = user.id!.toString()
-            req.headers.iduser = iduser!.toString()
-            req.headers.username = username!.toString()
-            
+            req.headers.iduser = '1'
+            req.headers.username = 'test'
             next()
       }
 

@@ -1,5 +1,5 @@
 
-import axios from 'axios';
+import { api } from '../helpers/Util';
 
 let API_BASE = '';
 if (typeof window !== 'undefined' && window.location.hostname === 'localhost' && window.location.port === '6969') {
@@ -12,12 +12,12 @@ if (typeof window !== 'undefined' && window.location.hostname === 'localhost' &&
 export const API_CONTACTOS_UNIVERSIDAD_URL = `${API_BASE}/api/contactos-universidad`;
 
 export const getContactosUniversidad = async () => {
-  const res = await axios.get(API_CONTACTOS_UNIVERSIDAD_URL);
+  const res = await api.get(API_CONTACTOS_UNIVERSIDAD_URL);
   return res.data;
 };
 
 export const getContactoUniversidad = async (id: number) => {
-  const res = await axios.get(`${API_CONTACTOS_UNIVERSIDAD_URL}?id=${id}`);
+  const res = await api.get(`${API_CONTACTOS_UNIVERSIDAD_URL}?id=${id}`);
   return res.data;
 };
 
@@ -138,5 +138,5 @@ export const updateContactoUniversidad = async (id: number, data: any) => {
 };
 
 export const deleteContactoUniversidad = async (id: number) => {
-  await axios.delete(API_CONTACTOS_UNIVERSIDAD_URL, { data: { id } });
+  await api.delete(API_CONTACTOS_UNIVERSIDAD_URL, { data: { id } });
 };

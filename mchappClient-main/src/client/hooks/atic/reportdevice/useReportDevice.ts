@@ -4,7 +4,8 @@ import FetchApiServiceInstance from '@/client/services/FetchApiService'
 import FilterInstance from '@/client/helpers/Filter'
 import { IData } from '@/client/models/IData'
 import { IDeviceReport } from '@/client/models/IDeviceReport'
-import axios, { AxiosError } from 'axios';
+import { api } from '../../../helpers/Util';
+import { AxiosError } from 'axios';
 
 type filterSearchAll = {
     search_all: string,
@@ -62,7 +63,7 @@ const useReportDevice = () => {
 
         } catch (err: unknown) {
             // Verificamos si el error es un error de Axios
-            if (axios.isAxiosError(err) && err.response) {
+            if ((err instanceof AxiosError) && err.response) {
                 const { status } = err.response; // Accedemos de forma segura a status
                 if (status === 409) {
                     console.log(`Attempt ${attempt}: Conflict detected. Retrying...`);

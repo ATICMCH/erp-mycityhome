@@ -3,7 +3,7 @@ import { PropBox } from "./Layout"
 import { useContext, useState } from "react"
 import UserContext from "@/client/context/UserContext"
 import { useRouter } from 'next/router'
-import axios from 'axios'
+import { api } from '../client/helpers/Util'
 import Link from 'next/link'
 import WebMCH24 from "./webMCH24"
 import FilterInstance from "@/client/helpers/Filter"
@@ -14,7 +14,7 @@ const MenuLeftContainer = ({ data, itemSelected }: { data: Array<MenuLeftType>, 
     const [isOpen, setIsOpen] = useState(false)
 
     const handleExit = async () => {
-        const response = await axios.get('/api/auth/logout')
+    const response = await api.get('/api/auth/logout')
         changeCurrentRol('')
         setUserData('')
         localStorage.removeItem('idlogin')

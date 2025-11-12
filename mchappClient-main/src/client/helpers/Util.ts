@@ -5,8 +5,12 @@ import { JSONObject, RequestCallback, RequestErrorHandler, rolenum } from '../ty
 import { PATH } from "./Path";
 import { useRouter } from 'next/router'
 
-// Interceptor global para añadir el token a cada request
-axios.interceptors.request.use(config => {
+
+// Instancia personalizada de Axios
+export const api = axios.create();
+
+// Interceptor global para añadir el token a cada request SOLO en la instancia api
+api.interceptors.request.use(config => {
     if (typeof window !== 'undefined') {
         const token = localStorage.getItem('token');
         if (token) {
@@ -21,14 +25,14 @@ export const classNames = (...classes: Array<string>) => classes.filter(Boolean)
 
 export const getRequest = async (path: string, errorHandler?: RequestErrorHandler) => {
     try {
-        const response: AxiosResponse<any, any> = await axios.get(path);
+    const response: AxiosResponse<any, any> = await api.get(path);
 
         // Do something with the response
 
         return response
 
     } catch (error) {
-        if (axios.isAxiosError(error)) {
+    if (error instanceof AxiosError) {
             error as AxiosError
 
             console.log(error)
@@ -44,10 +48,10 @@ export const getRequest = async (path: string, errorHandler?: RequestErrorHandle
 
 export const getRequestQuery = async (path: string, dataFilter: JSONObject, errorHandler?: RequestErrorHandler) => {
     try {
-        const response: AxiosResponse<any, any> = await axios.get(path, { params: dataFilter });
+    const response: AxiosResponse<any, any> = await api.get(path, { params: dataFilter });
         return response
     } catch (error) {
-        if (axios.isAxiosError(error)) {
+    if (error instanceof AxiosError) {
             error as AxiosError
 
             console.log(error)
@@ -77,14 +81,14 @@ export const postRequest = async (path: string, data: any, config?: any, errorHa
         //     data: JSON.stringify(data),
         // };
         // const response = await axios(_config)
-        const response: AxiosResponse<any, any> = await axios.post(path, data, config);
+    const response: AxiosResponse<any, any> = await api.post(path, data, config);
 
         // Do something with the response
 
         return response
 
     } catch (error) {
-        if (axios.isAxiosError(error)) {
+    if (error instanceof AxiosError) {
             error as AxiosError
 
             // Do something with this error...
@@ -99,14 +103,14 @@ export const postRequest = async (path: string, data: any, config?: any, errorHa
 
 export const patchRequest = async (path: string, data: any, config?: any, errorHandler?: RequestErrorHandler) => {
     try {
-        const response: AxiosResponse<any, any> = await axios.patch(path, data, config)
+    const response: AxiosResponse<any, any> = await api.patch(path, data, config)
 
         // Do something with the response
 
         return response
 
     } catch (error) {
-        if (axios.isAxiosError(error)) {
+    if (error instanceof AxiosError) {
             error as AxiosError
 
             // Do something with this error...
@@ -121,11 +125,11 @@ export const patchRequest = async (path: string, data: any, config?: any, errorH
 
 export const deleteRequest = async (path: string, config?: any, errorHandler?: RequestErrorHandler) => {
     try {
-        const response: AxiosResponse<any, any> = await axios.delete(path)
+    const response: AxiosResponse<any, any> = await api.delete(path)
         // Do something with the response
         return response
     } catch (error) {
-        if (axios.isAxiosError(error)) {
+    if (error instanceof AxiosError) {
             error as AxiosError
             // Do something with this error...
             if (errorHandler) errorHandler(error)

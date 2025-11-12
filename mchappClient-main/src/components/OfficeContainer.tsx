@@ -3,7 +3,7 @@ import { PropBox } from "./Layout"
 import { useContext, useState } from "react"
 import UserContext from "@/client/context/UserContext"
 import { useRouter } from 'next/router'
-import axios from 'axios'
+import { api } from '../client/helpers/Util'
 import Link from 'next/link'
 import { BsLightbulbOff, BsLightbulbFill, BsLightbulb } from 'react-icons/bs'
 

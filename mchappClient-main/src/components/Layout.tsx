@@ -1,6 +1,6 @@
 import Head from 'next/head'
 import React, { useState, useEffect, useContext, useCallback } from 'react'
-import axios from 'axios'
+import { api } from '../client/helpers/Util'
 import { useRouter } from 'next/router'
 import { IoIosArrowDown } from 'react-icons/io'
 import { VscThreeBars } from 'react-icons/vsc'
@@ -123,7 +123,7 @@ export const Layout = (props: JSONObject) => {
     const { useAllowedEffect, changeCurrentRol, getCurrentRol, userData, setUserData, isMobileMenuOpen, setIsMobileMenuOpen } = useContext(UserContext)
 
     const logout = async () => {
-        const response = await axios.get('/api/auth/logout')
+    const response = await api.get('/api/auth/logout')
         changeCurrentRol('')
         setUserData('')
 

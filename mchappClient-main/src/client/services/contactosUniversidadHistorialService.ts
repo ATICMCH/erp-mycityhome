@@ -1,6 +1,6 @@
-import axios from 'axios';
+import { api } from '../helpers/Util';
 
 export const getHistorialContactoUniversidad = async (id: number) => {
-  const res = await axios.get(`/api/contactos-universidad?historico=1&id=${id}`);
+  const res = await api.get(`/api/contactos-universidad?historico=1&id=${id}`);
   return res.data;
 };

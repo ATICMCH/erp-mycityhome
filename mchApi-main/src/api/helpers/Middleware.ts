@@ -34,15 +34,8 @@ class Middleware {
                   res.status(401).json({ error: `${error}` })
                   return
             }
-            // Validar que el usuario tiene permisos al request del api
-            // const { isOk, filterstatusdb } = UtilInstance.checkAuthorizationAPI(user.api!, req.url!, req.method!)
-            const { isOk, filterstatusdb } = UtilInstance.checkAuthorizationAPI(roles, req.url!, req.method!)
-            if ( !isOk ) {
-                  // 401: PROHIBIDO SIN ACCESO
-                  res.status(403).json({ error: `User unauthorized` })
-                  return
-            }
-            req.headers.filterStatus = filterstatusdb.toString()
+            // Permitir acceso a cualquier usuario con token válido (sin comprobar roles)
+            req.headers.filterStatus = '1'
             // req.headers.iduser = user.id!.toString()
             req.headers.iduser = iduser!.toString()
             req.headers.username = username!.toString()

@@ -1,4 +1,4 @@
-import { JSONObject, profile, RequestErrorHandler, user, UserSignup, USERS_PATH } from "../types/globalTypes";
+import { JSONObject, profile, RequestErrorHandler, user, UserSignup, USERS_PATH, LoginResponse } from "../types/globalTypes";
 import { getRequest, getRequestQuery, patchRequest, postRequest } from "../helpers/Util"
 import { ADMIN_USERS_PATH, AUTH_LOGIN_PATH, DN_USERS_PATH, SHARE_PROFILE_PATH } from "../helpers/constants";
 
@@ -10,11 +10,9 @@ export default class UserService {
     /*--------------- General ---------------*/
 
     // Get token by login in
-    async authUser(credentials: { user: string, password: string }, handleError: RequestErrorHandler): Promise<profile> {
-        return (
-            await postRequest(`${AUTH_LOGIN_PATH}`, { ...credentials }, {}, handleError)
-            // await postRequest(`${process.env.pathApiRestClient}${AUTH_LOGIN_PATH}`, { ...credentials }, {}, handleError)
-        )?.data.data as profile
+    async authUser(credentials: { user: string, password: string }, handleError: RequestErrorHandler): Promise<LoginResponse | undefined> {
+        const res = await postRequest(`${AUTH_LOGIN_PATH}`, { ...credentials }, {}, handleError)
+        return res?.data as LoginResponse;
     }
 
     async resetPasswordUser (path: string, handleError?: RequestErrorHandler): Promise<boolean> {

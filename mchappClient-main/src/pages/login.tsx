@@ -26,14 +26,17 @@ const Login = () => {
         const Response = await userService.authUser(credentials, () => { setIsError(true) })
         if (!Response) return
 
-        const _rolMain = Response?.roles.find(el => el.ismain === true)
+        const _rolMain = Response.data?.roles.find(el => el.ismain === true)
 
         if (Response && _rolMain) {
-            await setUserData(Response)
+            await setUserData(Response.data)
             await changeCurrentRol(_rolMain?.id)
 
             router.push('/' + _rolMain?.id)
-            localStorage.setItem('idlogin', Response.id.toString())
+            localStorage.setItem('idlogin', Response.data.id.toString())
+            if (Response.token) {
+                localStorage.setItem('token', Response.token)
+            }
         }
     }
 

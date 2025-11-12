@@ -1,3 +1,9 @@
+// Respuesta de login con token y perfil
+export interface LoginResponse {
+    data: profile;
+    token: string;
+    exp?: number;
+}
 import { AxiosError, AxiosResponse } from "axios"
 
 export type rolenum =   'admin' | 

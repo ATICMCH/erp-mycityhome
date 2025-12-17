@@ -5,6 +5,7 @@
 const app = require("express")()
 const express = require("express")
 const fetch = require('node-fetch')
+const path = require('path')
 
 
 require("dotenv").config()
@@ -1595,7 +1596,6 @@ async function toggleDeviceApi(idDevice) {
 //control del servidor mirilla
 
 const { spawn } = require('child_process');
-const path = require('path');
 
 let mirillaProcess = null;
 const serverPath = path.join(__dirname, 'mirilla', 'serverMirilla.js');

@@ -65,16 +65,16 @@ const handler = nc(
         // Obtiene los dispositivos del API eWelink
         const token = (dataDB && dataDB.data && dataDB.data.data && dataDB.data.data.accessToken) ? dataDB.data.data.accessToken : dataDB.valor
         const response = await EWeLinkInstance.getListDevice(token)
+        const ewelinkDevices = Array.isArray(response) ? response : []
 
         let elDB: DeviceBusiness = new DeviceBusiness(idUserLogin, filterState, false)
-        let lDevicesDB = await elDB.getByListCodes(response.map(el => el.deviceid))
+        let lDevicesDB = await elDB.getByListCodes(ewelinkDevices.map(el => el.deviceid))
 
-        let ldetailsResultSonoffTelefonillo: Array<IDeviceReportDetails> = (lDevicesDB as Array<IDevice>).map(el => (
-                                        { 
-                                        id_piso: el.idpiso,
-                                        id_device: el.id, 
-                                        state: (response.find(ell => ell.deviceid === el.codigo)) ? (response.find(ell => ell.deviceid === el.codigo)?.online? 'Online' : 'Offline') : 'error' 
-                                        }))
+        let ldetailsResultSonoffTelefonillo: Array<IDeviceReportDetails> = (lDevicesDB as Array<IDevice>).map(el => {
+                        const found = ewelinkDevices.find(ell => ell.deviceid === el.codigo)
+                        const state = found ? (found.online ? 'Online' : 'Offline') : 'error'
+                        return { id_piso: el.idpiso, id_device: el.id, state }
+                        })
     // ****** FIN SONOFF / TELEFONILLO
 
     let _elDB: DeviceBusiness = new DeviceBusiness(idUserLogin, filterState, false)
@@ -144,10 +144,15 @@ const handler = nc(
         })
     // ***** FIN CAMARA *****
 
-    let data: IDeviceReport = {
-            tipo: req.body.tipo || 'automatico',
-            ldetalle: [ ...ldetailsResultSonoffTelefonillo, ...ldetailResultMovil, ...ldetailResultLock, ...ldetailResultCamra ] || []
-    }
+        const sonoffList = Array.isArray(ldetailsResultSonoffTelefonillo) ? ldetailsResultSonoffTelefonillo : []
+        const movilList = Array.isArray(ldetailResultMovil) ? ldetailResultMovil : []
+        const lockList = Array.isArray(ldetailResultLock) ? ldetailResultLock : []
+        const camList = Array.isArray(ldetailResultCamra) ? ldetailResultCamra : []
+
+        let data: IDeviceReport = {
+            tipo: req.body?.tipo || 'automatico',
+            ldetalle: [ ...sonoffList, ...movilList, ...lockList, ...camList ]
+        }
 
     let elDRB: DeviceReportBusiness = new DeviceReportBusiness(idUserLogin, filterState, true)
     let dataReportResult: IDeviceReport | IErrorResponse = await elDRB.insertBulk(data)

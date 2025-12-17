@@ -29,13 +29,23 @@ const handler = nc(
         
         let response = {}
 
-        // No activar por el momento
-        // if ( dataDB ) {
-        //     let _refreshToken = dataDB.data.data.refreshToken as string
-        //     response = await EWeLinkInstance.refreshToken(_refreshToken)
-        // }
+        if ( dataDB ) {
+            try {
+                const _refreshToken = dataDB.data && dataDB.data.data && dataDB.data.data.refreshToken ? dataDB.data.data.refreshToken as string : null
+                if ( _refreshToken ) {
+                    console.log('🟨 [EWELINK] Attempting refresh with refreshToken (masked):', `${_refreshToken.toString().slice(0,8)}...`)
+                    response = await EWeLinkInstance.refreshToken(_refreshToken)
+                } else {
+                    response = { error: 404, msg: 'refreshToken not found in DB' }
+                }
+            } catch (err) {
+                console.error('🔴 [EWELINK] Error refreshing token:', err)
+                response = { error: 500, msg: 'Error refreshing token', data: err }
+            }
+        }
 
-    
+        // NOTE: This endpoint does NOT update the DB automatically. It returns the refresh response
+        // so you can manually inspect and update `tbl_parametros_generales` if needed.
 
         res.json({ data: response })
     })

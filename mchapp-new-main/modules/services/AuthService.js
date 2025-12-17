@@ -8,16 +8,25 @@ class AuthService {
         if ( !endPointApi ) return []
         let dataResult = undefined
         try {
+            console.log(`[AuthService] POST ${endPointApi}`)
             const res = await fetch( endPointApi,{
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json'},
                 body: JSON.stringify({user, password})
             })
 
-            if (res.status === 200) dataResult = await res.json()
-            else throw 'Error api'
+            console.log(`[AuthService] response status: ${res.status}`)
+            if (res.status === 200) {
+                dataResult = await res.json()
+            } else {
+                // Read body for debugging (may be empty for 204)
+                let bodyText = ''
+                try { bodyText = await res.text() } catch (e) { bodyText = '<unreadable>' }
+                console.error(`[AuthService] API responded with status ${res.status}. Body: ${bodyText}`)
+                // keep dataResult undefined to indicate failure
+            }
         } catch(err) {
-            console.log('Error http/https on API')
+            console.log('Error http/https on API', err)
         }
             
         return dataResult

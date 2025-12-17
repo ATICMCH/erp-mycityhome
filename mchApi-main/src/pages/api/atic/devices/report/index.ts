@@ -63,7 +63,8 @@ const handler = nc(
         dataDB = dataDB as IParametrosGenerales
         
         // Obtiene los dispositivos del API eWelink
-        const response = await EWeLinkInstance.getListDevice(dataDB.valor)
+        const token = (dataDB && dataDB.data && dataDB.data.data && dataDB.data.data.accessToken) ? dataDB.data.data.accessToken : dataDB.valor
+        const response = await EWeLinkInstance.getListDevice(token)
 
         let elDB: DeviceBusiness = new DeviceBusiness(idUserLogin, filterState, false)
         let lDevicesDB = await elDB.getByListCodes(response.map(el => el.deviceid))

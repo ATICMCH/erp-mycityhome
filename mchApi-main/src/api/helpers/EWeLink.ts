@@ -95,7 +95,9 @@ class EWeLink {
             let _cont = 1
             while ( true ) {
                 let _path = `https://${EWeLinkInstance.domain}/v2/device/thing?familyid=${EWeLinkInstance.familyId}&num=${_numPage}&beginIndex=${_index}`
+                const maskedToken = token ? `${token.toString().slice(0,8)}...` : 'null'
                 console.log('🟨 [EWELINK] Llamando a eWeLink API:', _path)
+                console.log('🟨 [EWELINK] Usando token (masked):', maskedToken)
                 let _config = {
                     url: `${_path}`,
                     method: 'GET',
@@ -108,10 +110,20 @@ class EWeLink {
 
                 let _responseEwelink = await axios(_config)
                 console.log('🟨 [EWELINK] Respuesta de eWeLink:', _responseEwelink.status, _responseEwelink.data)
-                let _total = _responseEwelink.data.data.total
-                let _listData = _responseEwelink.data.data.thingList as Array<any>
-                let _nroPages = Math.ceil(_total/_numPage)
+
+                // Protecciones si la respuesta no tiene la estructura esperada
+                const respData = _responseEwelink.data && _responseEwelink.data.data ? _responseEwelink.data.data : {}
+                const _total = respData && typeof respData.total !== 'undefined' ? Number(respData.total) : 0
+                const _listData = Array.isArray(respData.thingList) ? respData.thingList : []
+                const _nroPages = _total > 0 ? Math.ceil(_total / _numPage) : 0
                 console.log('🟨 [EWELINK] Total:', _total, 'Páginas:', _nroPages)
+
+                // Si no hay lista, evitamos errores y rompemos el bucle
+                if (!_listData || _listData.length === 0) {
+                    // añadimos lo que venga (vacío) y salimos
+                    data = [ ...data, ..._listData ]
+                    break
+                }
 
                 data = [ ...data, ..._listData ]
 
@@ -119,21 +131,32 @@ class EWeLink {
                 else {
                     if ( _cont >= _nroPages ) break
                     _cont++
-                    _index = _listData[_numPage-1].index // last element
+                    // proteger acceso al índice
+                    if (_listData.length >= _numPage && _listData[_numPage-1] && typeof _listData[_numPage-1].index !== 'undefined') {
+                        _index = _listData[_numPage-1].index // last element
+                    } else if (_listData.length > 0 && typeof _listData[_listData.length-1].index !== 'undefined') {
+                        _index = _listData[_listData.length-1].index
+                    } else {
+                        break
+                    }
                 }
             }
 
             data.forEach(el => {
-                let data: deviceWeLink = {
-                    name: el.itemData.name,
-                    deviceid: el.itemData.deviceid,
-                    online: el.itemData.online,
-                    params: {
-                        switch: el.itemData.params.switch,
-                        pulse: el.itemData.params.pulse
+                try {
+                    let data: deviceWeLink = {
+                        name: el.itemData.name,
+                        deviceid: el.itemData.deviceid,
+                        online: el.itemData.online,
+                        params: {
+                            switch: el.itemData.params.switch,
+                            pulse: el.itemData.params.pulse
+                        }
                     }
+                    result.push(data)
+                } catch (err) {
+                    // Ignorar elementos malformados
                 }
-                result.push(data)
             })
         } catch (error) {
             console.error('🔴 [EWELINK] Error en getListDevice:', error)

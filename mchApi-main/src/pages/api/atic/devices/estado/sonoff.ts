@@ -30,7 +30,8 @@ const handler = nc(
         let dataDB: IParametrosGenerales | IErrorResponse = await el.getByCode('TOKEN-EWELINK')
         dataDB = dataDB as IParametrosGenerales
         
-        const response = await EWeLinkInstance.getListDevice(dataDB.valor)
+        const token = (dataDB && dataDB.data && dataDB.data.data && dataDB.data.data.accessToken) ? dataDB.data.data.accessToken : dataDB.valor
+        const response = await EWeLinkInstance.getListDevice(token)
 
         let result = response.map(el => ({id: el.deviceid, status: el.online ? 'Online' : 'Offline'}))
 

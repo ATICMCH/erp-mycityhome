@@ -1025,12 +1025,19 @@ app.post('/update', auth, async (req, res) => { // Envia la request
 })
 
 app.post('/openPortalSONOFF', async (req, response) => {
-    const idDevice = parseInt(req.body.idDevice?.toString()) || 3
+    // Log incoming body to verify which id is sent from client
+    console.log('🟦 [APP] openPortalSONOFF request body:', req.body)
+
+    const rawId = req.body?.idDevice
+    const idDevice = (typeof rawId !== 'undefined' && rawId !== null) ? parseInt(rawId.toString()) : NaN
+
+    if (Number.isNaN(idDevice) || idDevice <= 0) {
+        console.log('🔴 [APP] openPortalSONOFF invalid idDevice:', rawId)
+        return response.status(400).json({ state: 0, error: 'idDevice missing or invalid' })
+    }
 
     let dataResult = { state: 0, error: 'Error, intentelo mas tarde!!' }
     try {
-        if (idDevice <= 0 || Number.isNaN(idDevice)) throw new Error('Invalid idDevice')
-
         const resEwe = await EWeLinkServiceInstance.setStatusByIdDevice(idDevice)
         console.log('🟦 [APP] openPortalSONOFF response:', resEwe)
 

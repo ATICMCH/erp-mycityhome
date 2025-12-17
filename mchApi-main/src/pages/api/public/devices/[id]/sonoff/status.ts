@@ -35,7 +35,8 @@ const handler = nc(
         dataDeviceDB = dataDeviceDB as IDevice
         // console.log(dataDeviceDB)
         
-        const response = await EWeLinkInstance.getCurrentStatus(dataDB.valor, dataDeviceDB.codigo)
+        const token = (dataDB && dataDB.data && dataDB.data.data && dataDB.data.data.accessToken) ? dataDB.data.data.accessToken : dataDB.valor
+        const response = await EWeLinkInstance.getCurrentStatus(token, dataDeviceDB.codigo)
         // const response = await EWeLinkInstance.getLastStatus(dataDB.valor, dataDeviceDB.codigo)
         // console.log(response)
 
@@ -72,7 +73,8 @@ const handler = nc(
         console.log('🟦 [SONOFF] Dispositivo encontrado:', dataDeviceDB.nombre, 'Código:', dataDeviceDB.codigo)
 
         console.log('🟦 [SONOFF] Cambiando estado del dispositivo...')
-        const response = await EWeLinkInstance.setStatus(dataDB.valor, dataDeviceDB.codigo)
+        const token = (dataDB && dataDB.data && dataDB.data.data && dataDB.data.data.accessToken) ? dataDB.data.data.accessToken : dataDB.valor
+        const response = await EWeLinkInstance.setStatus(token, dataDeviceDB.codigo)
         console.log('🟦 [SONOFF] Respuesta:', response)
 
         res.json({ data: response })

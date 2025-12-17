@@ -84,7 +84,7 @@ try {
 var users;
 let pisos = [];
 
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // app.use(session({
 //     secret: "This is a secret",
@@ -112,6 +112,8 @@ app.use(bodyParser.json());
 
 app.engine("handlebars", exphbs.engine())
 //app.engine("handlebars", hbs.engine)
+// Asegurar que Express busca las vistas en la carpeta `views` del proyecto
+app.set('views', path.join(__dirname, 'views'))
 app.set("view engine", "handlebars")
 
 // app.engine("handlebars", exphbs.engine)

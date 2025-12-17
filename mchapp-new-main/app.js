@@ -1026,15 +1026,23 @@ app.post('/update', auth, async (req, res) => { // Envia la request
 
 app.post('/openPortalSONOFF', async (req, response) => {
     const idDevice = parseInt(req.body.idDevice?.toString()) || 3
-    let endPointApi = `https://mch-api.vercel.app/api/public/devices/${idDevice}/sonoff/status`
-    // ${ApiConfigurationInstance.pathApi}/api/public/devices/${idDevice}/sonoff/status
 
-    let dataResult = { state: 1, error: undefined }
+    let dataResult = { state: 0, error: 'Error, intentelo mas tarde!!' }
     try {
-        if (idDevice <= 0 || idDevice === NaN) throw new Error('Error')
-        await EWeLinkServiceInstance.setStatusByIdDevice(idDevice)
+        if (idDevice <= 0 || Number.isNaN(idDevice)) throw new Error('Invalid idDevice')
+
+        const resEwe = await EWeLinkServiceInstance.setStatusByIdDevice(idDevice)
+        console.log('🟦 [APP] openPortalSONOFF response:', resEwe)
+
+        if (resEwe && resEwe.data) {
+            dataResult = { state: 1, data: resEwe.data }
+        } else if (resEwe && typeof resEwe.error !== 'undefined') {
+            dataResult = { state: 0, error: resEwe.msg || resEwe.error }
+        } else {
+            dataResult = { state: 0, error: 'No response from EWeLink service' }
+        }
     } catch (err) {
-        console.log(err)
+        console.log('🔴 [APP] openPortalSONOFF error:', err)
         dataResult = { state: 0, error: 'Error, intentelo mas tarde!!' }
     }
 

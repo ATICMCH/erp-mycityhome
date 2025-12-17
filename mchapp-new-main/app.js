@@ -1,11 +1,10 @@
-// Socket client
-//const io = require("socket.io-client");
+// Socket client const io = require("socket.io-client"); Librerias
 
-//Librerias
+
+const path = require('path');  // <-- aquí, al inicio
 const app = require("express")()
 const express = require("express")
 const fetch = require('node-fetch')
-
 
 require("dotenv").config()
 
@@ -97,6 +96,7 @@ app.use(session({
     resave: false,
     saveUninitialized: false,
     maxAge: 129600000
+
 }))
 
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -112,6 +112,7 @@ app.use(bodyParser.json());
 app.engine("handlebars", exphbs.engine())
 //app.engine("handlebars", hbs.engine)
 app.set("view engine", "handlebars")
+app.set("views", path.join(__dirname, "views"))
 
 // app.engine("handlebars", exphbs.engine)
 
@@ -1582,8 +1583,7 @@ async function getStatusDeviceSONOFFMultiApi(...lDevices) {
 
 async function toggleDeviceApi(idDevice) {
     let responseData = undefined
-    try {
-        // responseData = await connection.toggleDevice(idDevice)
+    try {        // responseData = await connection.toggleDevice(idDevice)
         responseData = await EWeLinkServiceInstance.setStatusByIdDevice(idDevice)
     } catch (err) {
         responseData = { error: 503, msg: "error, call ERP api!!" }
@@ -1595,11 +1595,12 @@ async function toggleDeviceApi(idDevice) {
 //control del servidor mirilla
 
 const { spawn } = require('child_process');
-const path = require('path');
 
-let mirillaProcess = null;
-const serverPath = path.join(__dirname, 'mirilla', 'serverMirilla.js');
 
+
+
+
+let mirillaProcess = null; const serverPath = path.join(__dirname, 'mirilla', 'serverMirilla.js');
 
 // Iniciar el servidor Mirilla
 function startMirillaServer() {

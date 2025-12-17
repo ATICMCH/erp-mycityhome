@@ -31,11 +31,18 @@ const handler = nc(
 
         if ( dataDB ) {
             try {
-                const _refreshToken = dataDB.data && dataDB.data.data && dataDB.data.data.refreshToken ? dataDB.data.data.refreshToken as string : null
+                // dataDB.data can be either an object or a JSON string depending on how it was stored
+                let parsedData: any = dataDB.data
+                if ( typeof parsedData === 'string' ) {
+                    try { parsedData = JSON.parse(parsedData) } catch (e) { /* keep as string */ }
+                }
+
+                const _refreshToken = parsedData && parsedData.data && parsedData.data.refreshToken ? parsedData.data.refreshToken as string : null
                 if ( _refreshToken ) {
                     console.log('🟨 [EWELINK] Attempting refresh with refreshToken (masked):', `${_refreshToken.toString().slice(0,8)}...`)
                     response = await EWeLinkInstance.refreshToken(_refreshToken)
                 } else {
+                    console.log('🔴 [EWELINK] refreshToken not found in parsed DB data:', typeof dataDB.data)
                     response = { error: 404, msg: 'refreshToken not found in DB' }
                 }
             } catch (err) {

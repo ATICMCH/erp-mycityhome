@@ -1118,7 +1118,12 @@ app.get("/fichar", auth, checkRole(["admin",
  */
 app.post("/login", async (req, res) => {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress
-    console.log(`ip -> ${ip}`)
+    // DEBUG: loguear intentos de login para depuración
+    try {
+        console.log('[DEBUG] POST /login from IP:', ip, 'body:', JSON.stringify(req.body));
+    } catch (err) {
+        console.log('[DEBUG] POST /login from IP:', ip, 'body: <unserializable>');
+    }
     let _userLogin = await checkUser(req.body.name || '', req.body.password || '')
     if (_userLogin) {
         req.session.token = _userLogin.token
@@ -1137,6 +1142,7 @@ app.post("/login", async (req, res) => {
         if (`${req.session.pathprev}`.includes("fichar")) res.redirect(`${req.session.pathprev}?qr=${encodeURIComponent(req.session.qr)}`)
         else res.redirect("/")
     } else {
+        console.log('[DEBUG] Login failed for IP:', ip, 'user:', req.body.name || '<empty>');
         res.redirect("/login")
     }
 })
@@ -1449,9 +1455,11 @@ function checkUserOld(username, pass) {
 async function checkUser(user, password) {
     let _result = undefined
     try {
+        console.log(`[DEBUG] checkUser: calling AuthServiceInstance.login user=${user}`)
         _result = await AuthServiceInstance.login(user, password)
+        try { console.log('[DEBUG] checkUser: login response:', JSON.stringify(_result)) } catch(e) {}
     } catch (err) {
-        console.log('Error al consumir API')
+        console.error('[DEBUG] checkUser: Error al consumir API:', err)
     }
     return _result
 }

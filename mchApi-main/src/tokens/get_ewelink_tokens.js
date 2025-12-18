@@ -9,6 +9,9 @@ const util = require('util');
   const email = process.env.EW_EMAIL || process.argv[2];
   const password = process.env.EW_PASS || process.argv[3];
   const region = process.env.EW_REGION || 'eu';
+  // Opcional: permitir forzar un APP_ID / APP_SECRET si se dispone (puede permitir login con una app autorizada)
+  const appId = process.env.EW_APP_ID || process.argv[4];
+  const appSecret = process.env.EW_APP_SECRET || process.argv[5];
 
   if (!email || !password) {
     console.error('Uso: EW_EMAIL="tu@email" EW_PASS="tuPass" EW_REGION="eu" node get_ewelink_tokens.js');
@@ -18,7 +21,33 @@ const util = require('util');
   console.log('Iniciando login eWeLink (region=' + region + ')...');
 
   try {
-    const connection = new Ewelink({ email, password, region });
+    const opts = { email, password, region };
+    if (appId) opts.appid = appId;
+    if (appSecret) opts.apikey = appSecret;
+    if (appId || appSecret) console.log('[Info] usando APP_ID/apikey proporcionados.');
+
+    const connection = new Ewelink(opts);
+
+    // Si se pasaron APP_ID / APP_SECRET, forzarlas en varias propiedades
+    if (appId || appSecret) {
+      const keysMap = [
+        ['APP_ID', 'APP_SECRET'],
+        ['appid', 'apikey'],
+        ['appId', 'appSecret'],
+        ['appID', 'appKEY']
+      ];
+      for (const [kId, kSecret] of keysMap) {
+        try {
+          if (appId) connection[kId] = appId;
+          if (appSecret) connection[kSecret] = appSecret;
+        } catch {}
+      }
+      // Algunos builds usan lowercase names
+      try { if (appId) connection.appid = appId; } catch {}
+      try { if (appSecret) connection.apikey = appSecret; } catch {}
+      // Log breve para depuración
+      console.log('[Info] forzadas propiedades APP_ID/apikey en la instancia (varios nombres).');
+    }
 
     // Intentamos obtener credenciales con la función expuesta por la librería (si existe)
     let creds = null;
@@ -26,9 +55,13 @@ const util = require('util');
       if (typeof connection.getCredentials === 'function') {
         creds = await connection.getCredentials();
         console.log('\n[getCredentials] ->', util.inspect(creds, { depth: 5 }));
+      } else if (typeof connection.login === 'function') {
+        // Algunas versiones exponen login
+        creds = await connection.login();
+        console.log('\n[login] ->', util.inspect(creds, { depth: 5 }));
       }
     } catch (err) {
-      console.warn('[getCredentials] lanzó error:', err && err.message ? err.message : err);
+      console.warn('[getCredentials/login] lanzó error:', err && err.message ? err.message : err);
     }
 
     // Inspeccionamos propiedades comunes donde la librería puede guardar tokens

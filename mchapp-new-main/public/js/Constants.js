@@ -5,7 +5,7 @@ const Constants = {
 
       // Acciones LOCK DEVICE
       ACTION_OPENLOCK: "openLock",
-      ACTION_NEWCODE: "newCode",
+      ACTION_NEWCODE: "setCode",
       ACTION_SETCARD: "setCard",
       ACTION_OPENPORTAL: "openPortal",
       ACTION_TOGGLELIGHT: "toggleLight",

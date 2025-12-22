@@ -434,11 +434,34 @@ const GestionPiso = {
                                                             idmanija: dataJSON.idmanija || undefined
                                                       }
                                                 }
-                                                fetch(`/api/public/apartments/${dataJSON.idPiso}/devices/${dataJSON.idDevice}/actions`, {
-                                                      method: 'POST',
-                                                      headers: { 'Content-Type': 'application/json' },
-                                                      body: JSON.stringify(payload)
-                                                })
+                                                // Enviar al API backend (normalmente corre en el puerto 3016)
+                                                try {
+                                                      const apiHost = window.location.hostname
+                                                      const apiPort = 3016
+                                                      const apiProtocol = window.location.protocol
+                                                      const apiUrl = `${apiProtocol}//${apiHost}:${apiPort}/api/public/apartments/${dataJSON.idPiso}/devices/${dataJSON.idDevice}/actions`
+                                                      fetch(apiUrl, {
+                                                            method: 'POST',
+                                                            mode: 'cors',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify(payload)
+                                                      })
+                                                      .then(r => r.json())
+                                                      .then(res => {
+                                                            if (res.error) {
+                                                                  alert('Error al crear código: ' + JSON.stringify(res.data || res))
+                                                            } else {
+                                                                  Util.showAlert('alertOK_CC')
+                                                                  GestionPiso.clearForm()
+                                                            }
+                                                      }).catch(err => {
+                                                            console.error('Fallback REST error', err)
+                                                            alert('Intentelo más tarde. Gracias!')
+                                                      })
+                                                } catch (e) {
+                                                      console.error('Fallback build URL error', e)
+                                                      alert('Intentelo más tarde. Gracias!')
+                                                }
                                                 .then(r => r.json())
                                                 .then(res => {
                                                       if (res.error) {

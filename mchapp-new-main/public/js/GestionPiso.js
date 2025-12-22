@@ -398,13 +398,72 @@ const GestionPiso = {
 
                   window.setTimeout(function () {
                         // Si aún hay error en la conexión
-                        if (!socket.connected) {
-                              modalApp.hide();
-                              alert("Intentelo más tarde. Gracias!");
-                              return;
-                        } else {
-                              socket.emit(Constants.SOCKET_EMIT_TO_SERVER_LOCK, clientFromID, JSON.stringify(dataJSON));
-                        }
+                              if (!socket.connected) {
+                                    // Intentar fallback REST para creación de código (setCode)
+                                    modalApp.hide();
+                                    try {
+                                          if (dataJSON.cmd === Constants.ACTION_NEWCODE) {
+                                                const days = dataJSON.days || 1
+                                                const code = (dataJSON.code || '').toString()
+                                                const now = new Date()
+                                                const tsNow = Math.floor(now.getTime() / 1000)
+                                                const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+                                                const endDate = new Date(startDate)
+                                                endDate.setDate(startDate.getDate() + days)
+                                                const payload = {
+                                                      log_data: {
+                                                            accion: dataJSON.cmd,
+                                                            resultado: "1",
+                                                            usuario: dataJSON.user || user,
+                                                            fecha: new Date().toISOString(),
+                                                            timestamp: tsNow,
+                                                            iddispositivo: dataJSON.idDevice,
+                                                            idpiso: dataJSON.idPiso,
+                                                            data: { client: code, clientFrom: dataJSON.clientFrom || clientFromID, msg: 'Solicitando creación de código', codigo: code, dias: days },
+                                                            tipo_ejecucion: dataJSON.tipo_ejecucion || 'Manual',
+                                                            observacion: dataJSON.observacion || ''
+                                                      },
+                                                      code_data: {
+                                                            codigo: code,
+                                                            dias: days,
+                                                            timestamp_inicio: tsNow,
+                                                            timestamp_fin: tsNow + (days * 86400),
+                                                            fecha_vig_inicio: startDate.toISOString().split('T')[0] + 'T00:00:00Z',
+                                                            fecha_vig_fin: endDate.toISOString().split('T')[0] + 'T00:00:00Z',
+                                                            idtipocodigo: dataJSON.idTypeCode || 1,
+                                                            idmanija: dataJSON.idmanija || undefined
+                                                      }
+                                                }
+                                                fetch(`/api/public/apartments/${dataJSON.idPiso}/devices/${dataJSON.idDevice}/actions`, {
+                                                      method: 'POST',
+                                                      headers: { 'Content-Type': 'application/json' },
+                                                      body: JSON.stringify(payload)
+                                                })
+                                                .then(r => r.json())
+                                                .then(res => {
+                                                      if (res.error) {
+                                                            alert('Error al crear código: ' + JSON.stringify(res.data || res))
+                                                      } else {
+                                                            // Mostrar resultado en UI similar al socket
+                                                            Util.showAlert('alertOK_CC')
+                                                            GestionPiso.clearForm()
+                                                      }
+                                                }).catch(err => {
+                                                      console.error('Fallback REST error', err)
+                                                      alert('Intentelo más tarde. Gracias!')
+                                                })
+                                                return
+                                          }
+                                    } catch (e) {
+                                          console.error('Fallback error', e)
+                                          alert('Intentelo más tarde. Gracias!')
+                                          return
+                                    }
+                                    alert("Intentelo más tarde. Gracias!");
+                                    return;
+                              } else {
+                                    socket.emit(Constants.SOCKET_EMIT_TO_SERVER_LOCK, clientFromID, JSON.stringify(dataJSON));
+                              }
                   }, 500);
             } catch (e) {
                   console.log('Error socket!!');

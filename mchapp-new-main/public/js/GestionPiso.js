@@ -462,19 +462,6 @@ const GestionPiso = {
                                                       console.error('Fallback build URL error', e)
                                                       alert('Intentelo más tarde. Gracias!')
                                                 }
-                                                .then(r => r.json())
-                                                .then(res => {
-                                                      if (res.error) {
-                                                            alert('Error al crear código: ' + JSON.stringify(res.data || res))
-                                                      } else {
-                                                            // Mostrar resultado en UI similar al socket
-                                                            Util.showAlert('alertOK_CC')
-                                                            GestionPiso.clearForm()
-                                                      }
-                                                }).catch(err => {
-                                                      console.error('Fallback REST error', err)
-                                                      alert('Intentelo más tarde. Gracias!')
-                                                })
                                                 return
                                           }
                                     } catch (e) {

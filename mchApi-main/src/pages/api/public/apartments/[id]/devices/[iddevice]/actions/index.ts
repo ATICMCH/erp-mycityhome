@@ -22,6 +22,17 @@ const handler = nc(
               res.status(404).end("Page is not found");
             }
       })
+      // Añadir cabeceras CORS para permitir peticiones desde el cliente
+      .use((req, res, next) => {
+            res.setHeader('Access-Control-Allow-Origin', '*')
+            res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,DELETE,PATCH,POST,PUT')
+            res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Token, x-user-id')
+            next()
+      })
+      .options((req, res) => {
+            // Responder preflight
+            res.status(200).end()
+      })
       // .use(MiddlewareInstance.verifyToken)
       .post(async (req, res: NextApiResponse<IResponse | IErrorResponse>) => {
             // Obtener ID de usuario desde header personalizado o desde token

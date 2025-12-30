@@ -8,6 +8,19 @@ class Middleware {
       constructor() {}
 
         verifyToken(req: NextApiRequest, res: NextApiResponse<IErrorResponse>, next: NextHandler): void {
+                  // Añadir cabeceras CORS para permitir llamadas desde el cliente (preflight y headers personalizados)
+                  try {
+                        res.setHeader('Access-Control-Allow-Origin', '*')
+                        res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS,PUT,DELETE')
+                        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, token, idlogin, x-idlogin, filterStatus, x-filterStatus')
+                        if ((req.method || '').toUpperCase() === 'OPTIONS') {
+                              res.status(200).end()
+                              return
+                        }
+                  } catch (e) {
+                        // ignore header errors
+                  }
+
                   // Permitir acceso a cualquier usuario. Si llega un token en headers
                   // (Authorization: Bearer ... o token) intentamos obtener datos reales
                   // del token; si falla, dejamos valores por defecto para desarrollo.

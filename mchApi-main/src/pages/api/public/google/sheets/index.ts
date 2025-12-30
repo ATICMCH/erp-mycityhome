@@ -24,7 +24,12 @@ async function getServiceAccount() {
   if (!fs.existsSync(credsPath)) return null
   const raw = fs.readFileSync(credsPath, 'utf8')
   try {
-    return JSON.parse(raw)
+    const sa = JSON.parse(raw)
+    // Normalize private_key newlines if necessary (some JSON keep them escaped)
+    if (sa.private_key && typeof sa.private_key === 'string') {
+      sa.private_key = sa.private_key.replace(/\\n/g, '\n')
+    }
+    return sa
   } catch (e) {
     return null
   }
@@ -84,10 +89,12 @@ handler.get(async (req: NextApiRequest, res: NextApiResponse) => {
   }
 
   try {
+    console.debug('[sheets] using service account:', sa.client_email)
     const token = await getAccessToken(sa)
     const encodedRange = encodeURIComponent(String(range))
     const sheetId = encodeURIComponent(String(spreadsheetId))
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodedRange}`
+    console.debug('[sheets] requesting url=', url)
     const sheetRes = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
     if (!sheetRes.ok) {
       const txt = await sheetRes.text()

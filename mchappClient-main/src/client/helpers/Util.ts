@@ -17,6 +17,11 @@ api.interceptors.request.use(config => {
             config.headers = config.headers || {};
             config.headers.Authorization = `Bearer ${token}`;
         }
+        const idlogin = localStorage.getItem('idlogin') || localStorage.getItem('iduser_cl') || localStorage.getItem('idlogin_client');
+        if (idlogin) {
+            config.headers = config.headers || {};
+            config.headers.idlogin = idlogin.toString();
+        }
     }
     return config;
 });

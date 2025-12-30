@@ -23,10 +23,12 @@ const handler = nc(
       .use(MiddlewareInstance.verifyToken)
       .get(async (req, res: NextApiResponse<IResponse | IErrorResponse>) => {
             const idUserLogin = BigInt((req.headers.iduser)? parseInt(req.headers.iduser as string): 0)
+            console.debug('[share/profile] headers.iduser=', req.headers.iduser, ' token=', req.headers.token)
             const filterStatus = (( req.headers.filterStatus ) ? req.headers.filterStatus : Constants.code_status_no_valid) as StatusDataType
             let el: UserBusiness = new UserBusiness(idUserLogin, filterStatus, false)
 
             let dataDB: IUser | IErrorResponse = await el.getById(idUserLogin)
+            console.debug('[share/profile] dataDB result:', dataDB ? 'present' : 'null/undefined')
             
             if ( !dataDB ) {
                   res.status(404).json({ error: 'data not found' })

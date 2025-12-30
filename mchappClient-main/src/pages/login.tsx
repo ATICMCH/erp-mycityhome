@@ -34,9 +34,6 @@ const Login = () => {
 
             router.push('/' + _rolMain?.id)
             localStorage.setItem('idlogin', Response.data.id.toString())
-            if (Response.token) {
-                localStorage.setItem('token', Response.token)
-            }
         }
     }
 

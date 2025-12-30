@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import nc from 'next-connect'
 import path from 'path'
 import fs from 'fs'
+import * as crypto from 'crypto'
 import { SignJWT } from 'jose'
 
 const handler = nc()
@@ -70,8 +71,6 @@ async function getAccessToken(sa: any) {
 async function importPrivateKey(pem: string) {
   // jose accepts PKCS8 PEM directly via importSPKI/importPKCS8, but SignJWT.sign accepts a KeyLike.
   // Use Node's crypto to create a KeyObject.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const crypto = require('crypto')
   return crypto.createPrivateKey({ key: pem, format: 'pem', type: 'pkcs8' })
 }
 

@@ -1,5 +1,8 @@
-import DeviceBusiness from '@/api/business/DeviceBusiness'
-import UtilInstance from '@/api/helpers/Util'
+import DeviceBusiness from '../business/DeviceBusiness'
+import UtilInstance from './Util'
+import ParametrosGeneralesBusiness from '../business/ParametrosGeneralesBusiness'
+import EWeLinkInstance from './EWeLink'
+import Constants from './Constants'
 import axios from 'axios'
 
 class LockPush {
@@ -24,8 +27,38 @@ class LockPush {
 
             const device: any = deviceDB
 
-            // Detectar si es TTLock / external lock
+            // Detectar tipo de dispositivo
             const deviceType = (device.type || device.tdevice || '').toString().toLowerCase()
+
+            // Manejo para dispositivos Sonoff / eWeLink
+            if (deviceType.includes(Constants.type_device_sonoff) || deviceType.includes('sonoff')) {
+                console.log('[LockPush] Detected eWeLink/Sonoff device, attempting eWeLink push')
+                const paramBus = new ParametrosGeneralesBusiness(BigInt(1), 1, false)
+                const tokenParam: any = await paramBus.getByCode('TOKEN-EWELINK')
+                if ((tokenParam as any).error) {
+                    console.log('[LockPush] No eWeLink token found in parametros generales')
+                    return { pushed: false, reason: 'no_ewelink_token' }
+                }
+
+                const token = (tokenParam && tokenParam.data && tokenParam.data.data && tokenParam.data.data.accessToken) ? tokenParam.data.data.accessToken : tokenParam.valor
+                const idDeviceEwe = device.codigo || (device.info_extra && (device.info_extra.deviceid || device.info_extra.deviceId)) || null
+                if (!idDeviceEwe) {
+                    console.log('[LockPush] No eWeLink device identifier found on device.codigo or device.info_extra')
+                    return { pushed: false, reason: 'no_ewelink_deviceid' }
+                }
+
+                try {
+                    const res = await EWeLinkInstance.setStatus(token, idDeviceEwe.toString())
+                    console.log('[LockPush] eWeLink result:', res)
+                    const pushed = (res && (res as any).error === 0) ? true : false
+                    return { pushed, reason: pushed ? 'ok' : 'ewelink_error', info: res }
+                } catch (err) {
+                    console.error('[LockPush] Error pushing to eWeLink:', err)
+                    return { pushed: false, reason: 'exception', error: err }
+                }
+            }
+
+            // Detectar si es TTLock / external lock
             if (!deviceType.includes('ttlock') && !deviceType.includes('lock') && !deviceType.includes('welock')) {
                 console.log('[LockPush] Device type not supported for push:', deviceType)
                 return { pushed: false, reason: 'unsupported_device_type', deviceType }
@@ -52,10 +85,6 @@ class LockPush {
             // falta completar la integración con las credenciales y los endpoints de TTLock.
             console.log('[LockPush] Credentials present. To complete integration: implement TTLock OAuth + addPass API call')
             console.log('[LockPush] Would push to lockId:', lockId, 'with code:', code)
-
-            // Ejemplo (no funcional) de cómo sería una llamada POST (descomentar y completar cuando se tenga API):
-            // const token = await this.getTTLockToken(TT_CLIENT_ID, TT_CLIENT_SECRET)
-            // await axios.post('https://api-ttlock.example/lock/addPassword', { lockId, password: code, pwdType: 1 }, { headers: { Authorization: `Bearer ${token}` } })
 
             return { pushed: false, reason: 'not_implemented', info: { lockId } }
         } catch (err) {

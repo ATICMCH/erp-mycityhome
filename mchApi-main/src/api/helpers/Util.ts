@@ -350,11 +350,9 @@ class Util {
        * @returns 
        */
       createSign(appsecret: string, message: string): string {
-            let _buffer = Buffer.from(message, "utf-8")
-            let _theSign = crypto.createHmac('sha256', appsecret).update(_buffer).digest('base64')
+            let _theSign = crypto.createHmac('sha256', appsecret).update(message, 'utf8').digest('base64')
             console.log(appsecret, message)
             console.log(_theSign)
-            // or let _theSign = CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA256(buffer, appsecret));
             return _theSign
       }
 

@@ -3,7 +3,7 @@ import nc from 'next-connect'
 
 import { IErrorResponse } from '@/api/modelsextra/IErrorResponse'
 import { IResponse } from '@/api/modelsextra/IResponse'
-import UtilInstance from '@/api/helpers/Util'
+import UtilInstance from '../../../../../../../../api/helpers/Util'
 import { ILogsApartment } from '@/api/models/ILogsApartment'
 import ActionsLogApartmentBusiness from '@/api/business/ActionsLogApartmentBusiness'
 import { IActionsLogApartment } from '@/api/models/IActionsLogApartment'
@@ -11,6 +11,7 @@ import { ICode } from '@/api/models/ICode'
 import { IKey } from '@/api/models/IKey'
 import Constants from '@/api/helpers/Constants'
 import { ResultType, TypeExecLogType } from '@/api/types/GlobalTypes'
+import LockPushInstance from '../../../../../../../../api/helpers/LockPush'
 
 const handler = nc(
       {
@@ -109,15 +110,31 @@ const handler = nc(
                   res.status(404).json({ error: 'data not found' })
                   return
             }
-            // Si hay error, loguear detalle en consola
+            // Si hay error, loguear detalle en consola y devolver 409
             if (({ ...dataDB } as IErrorResponse).error) {
                   const err = dataDB as IErrorResponse;
                   if (err.data && Array.isArray(err.data) && err.data.length > 0) {
                         console.error('❌ [VALIDACION] Detalle de error:', JSON.stringify(err.data, null, 2));
                   }
-                  // 409: conflicto con los datos enviados
                   res.status(409).json(dataDB as IErrorResponse);
                   return;
+            }
+
+            // Intentar push del código al dispositivo (si existe integración)
+            try {
+                  const codeToPush = (dataDB as IActionsLogApartment).code_data?.codigo || (code_data.codigo || '')
+                  const idDeviceNum = Number(idDevice)
+                  const idApartmentNum = Number(idApartment)
+                  if (codeToPush && idDeviceNum) {
+                        // no bloqueamos la respuesta ante fallo en el push
+                        LockPushInstance.pushCodeToLock({ idDevice: idDeviceNum, idApartment: idApartmentNum, code: codeToPush })
+                        .then((r: any) => console.log('[LOCKPUSH] Resultado push:', r))
+                        .catch((e: any) => console.error('[LOCKPUSH] Error push:', e))
+                  } else {
+                        console.log('[LOCKPUSH] No hay código o idDevice para intentar push')
+                  }
+            } catch (e) {
+                  console.error('[LOCKPUSH] Error lanzando push:', e)
             }
 
             res.json({ data: dataDB })

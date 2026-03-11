@@ -357,4 +357,3 @@ Si algo no funciona:
 ---
 
 **¡Listo! Copia el script del Paso 2 y ejecútalo en tu servidor.** 🚀
-esto es una prueba

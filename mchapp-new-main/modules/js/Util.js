@@ -9,7 +9,6 @@ const Util = () => {
             //  const URL_SERVER = "https://tcpmch.fly.dev/"
             args = process.argv.slice(2)
             const URL_SERVER = args[0] == "dev" ? process.env.TCP_DEV : process.env.TCP_PROD
-            const API_REST = args[0] == "dev" ? process.env.API_REST_DEV : process.env.API_REST_PROD
             // const URL_API = args[0] == "dev" ? process.env.APILOCAL : process.env.APISERVER
             // Consulta datos on GitHub
             const URL_GITHUB_PISOS_DATA = "https://raw.githubusercontent.com/ATICMCH/dataInfo/main/pisosData.json"
@@ -54,8 +53,8 @@ const Util = () => {
             const STATUS_ACTION_FALLIDO = "Fallido"
 
             //Conexion eWeLink
-            const emailEWL =  'atic@mycityhome.es'
-            const passwordEWL = 'IoT_2021'
+            const emailEWL =  'proyectosatic@mycityhome.es'
+            const passwordEWL = 'IoT_2026'
             const regionEWL =  'eu'
 
             // Types devices
@@ -67,9 +66,8 @@ const Util = () => {
 
             return {    STATUS_ACTION_CORRECTO,
                         STATUS_ACTION_FALLIDO,
-                        URL_SERVER,
-                        API_REST,
-                        deviceOficina,
+                        URL_SERVER, 
+                        deviceOficina, 
                         pathGetAllDevices,
                         TYPE_CODE_DEVICE,
                         MSN_TABLE_EMPTY,

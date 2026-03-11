@@ -5,12 +5,11 @@
 const app = require("express")()
 const express = require("express")
 const fetch = require('node-fetch')
-const path = require('path')
 
 
 require("dotenv").config()
-
-const PORT = process.env.PORT || 3017;
+args = process.argv.slice(2)
+PORT = (args[0] == "dev" ? process.env.DEVPORT : process.env.PORT) || 3017;
 
 // const { Client: ClientDB } = require('pg')
 
@@ -42,11 +41,9 @@ const { Constants, RouteApp, getDataGitHub,
     formatDateSQLToScreen,
     getLabelTypeCard, processDataLog, getCardByTypeKey } = require("./modules/js/Util")()
 
-try {
-    // Logs.init() // quitado temporalmente para evitar conexión a Google Sheets
-} catch (err) {
-    console.log('error al iniciar google-spreadsheet');
-}
+Logs.init().catch(err => {
+    console.error('Error asíncrono al iniciar google-spreadsheet. La app seguirá funcionando.');
+});
 
 // ======= SOCKETS ON SERVIDOR [TEMPORAL SIN USO] =========
 // Inicializar socket, indicandole cual esta haciendo la conexión al TCP
@@ -84,7 +81,7 @@ try {
 var users;
 let pisos = [];
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(require('path').join(__dirname, 'public')));
 
 // app.use(session({
 //     secret: "This is a secret",
@@ -112,9 +109,8 @@ app.use(bodyParser.json());
 
 app.engine("handlebars", exphbs.engine())
 //app.engine("handlebars", hbs.engine)
-// Asegurar que Express busca las vistas en la carpeta `views` del proyecto
-app.set('views', path.join(__dirname, 'views'))
 app.set("view engine", "handlebars")
+app.set("views", require('path').join(__dirname, 'views'));
 
 // app.engine("handlebars", exphbs.engine)
 
@@ -124,7 +120,6 @@ Handlebars.registerHelper('eq', function(a, b) {
 
 Handlebars.registerHelper('eachPiso', function (context, options) {
     var fn = options.fn, inverse = options.inverse, ctx;
-    
     var ret = "";
 
     let _startFlag = true
@@ -248,30 +243,18 @@ var auth = async (req, res, next) => {
     // Esta validación de login solo es para el tema de fichaje. [Deberia habilitarse para todo el mch, cuando se protega los endpoinst publicos]
     if (`${req.route.path}`.includes("fichar")) {
         req.session.pathprev = req.route.path
+        req.session.qr = req.query.qr
 
-        // Si viene un QR nuevo (diferente al guardado en sesión), invalidar sesión para pedir nuevo login
-        if (req.query.qr && req.query.qr !== req.session.qr) {
-            req.session.qr = req.query.qr
+        const _tokenIsValid = await AuthServiceInstance.tokenIsValid(req.session.token)
+        //console.log('token is valida: ', _tokenIsValid)
+
+        // verificar token y si esta podrido o a punto de podrirse -> solicitar login
+        if (!_tokenIsValid) {
             req.session.token = undefined
             req.session.name = undefined
             req.session.role = undefined
             req.session.id = undefined
             req.session.department = undefined
-        } else if (req.query.qr) {
-            // Si es el mismo QR (volviendo del login), solo actualizar
-            req.session.qr = req.query.qr
-        }
-
-        // Validar token si existe sesión
-        if (req.session.token) {
-            const _tokenIsValid = await AuthServiceInstance.tokenIsValid(req.session.token)
-            if (!_tokenIsValid) {
-                req.session.token = undefined
-                req.session.name = undefined
-                req.session.role = undefined
-                req.session.id = undefined
-                req.session.department = undefined
-            }
         }
     }
 
@@ -983,13 +966,13 @@ app.post("/savesugerencia", nAuth, async (req, res) => {
     let fCurrent = [date - 8 * h, date + dia - 8 * h, date]
 
     try {
-        // await Logs.addSugerencia({
-        //     Fecha: fCurrent[2] / 86400 + 25569,
-        //     Motivo: reqMotivo,
-        //     Observacion: repObservacion
-        // })
-        // await Logs.sheetSugerencia.saveUpdatedCells();
-        stateSave = 1; // OK (forzado, sin Google)
+        await Logs.addSugerencia({
+            Fecha: fCurrent[2] / 86400 + 25569,
+            Motivo: reqMotivo,
+            Observacion: repObservacion
+        })
+        await Logs.sheetSugerencia.saveUpdatedCells();
+        stateSave = 1; // OK
     } catch (error) {
         stateSave = 0; // Error
     }
@@ -998,11 +981,18 @@ app.post("/savesugerencia", nAuth, async (req, res) => {
 })
 
 //Encender luz - Generar nuevo codigo
-app.post('/update', auth, async (req, res) => { // Envia la request
+app.post('/update', auth, async (req, res) => { 
     if (req.body.cmd == 'toggleLight') {
         let idDeviceIn = parseInt(req.body.idDevice) || 0
         let idPisoIn = parseInt(req.body.idPiso) || 0
         let statusSONOFF = { error: 403, msg: "device not exist!!" }
+        
+        // --- PARCHE DE REDIRECCIÓN (Si aplica a la luz) ---
+        // Si tienes problemas de IDs con la luz, ponlo aquí. 
+        // Ejemplo: si el ID de la luz en BD ahora es 5 pero la web manda 4:
+        // if (idDeviceIn === 4) { idDeviceIn = 5; }
+        // --------------------------------------------------
+
         let pisoData = pisos.filter(el => el.id === idPisoIn)[0] ||
         {
             id: 0,
@@ -1011,13 +1001,24 @@ app.post('/update', auth, async (req, res) => { // Envia la request
             dispositivos: []
         }
         let deviceSonoff = pisoData.dispositivos.filter(el => el.id === idDeviceIn)[0]
+        
         if (!deviceSonoff) {
+            console.log(`[Luz] No se encontró el dispositivo ${idDeviceIn} en el piso ${idPisoIn}`);
             res.json(statusSONOFF)
             return
         }
+        
+        console.log(`[Luz] Solicitando cambiar estado de la luz. ID BD: ${deviceSonoff.id}`);
         let respWeLock = await toggleDeviceApi(deviceSonoff.id)
+        
         if (respWeLock) {
-            if (respWeLock.data.error === 0) respWeLock = { ...respWeLock.data, error: undefined }
+            if (respWeLock.data && respWeLock.data.error === 0) {
+                // Formateamos la respuesta para que el frontend la entienda
+                respWeLock = { error: 0, data: { ...respWeLock.data.data } }
+                console.log(`[Luz] ¡Estado cambiado con éxito!`);
+            } else {
+                respWeLock = { error: respWeLock.data ? respWeLock.data.error : 500, msg: "Error del ERP" }
+            }
         }
         statusSONOFF = respWeLock || statusSONOFF
         res.json(statusSONOFF)
@@ -1025,36 +1026,33 @@ app.post('/update', auth, async (req, res) => { // Envia la request
 })
 
 app.post('/openPortalSONOFF', async (req, response) => {
-    // Log incoming body to verify which id is sent from client
-    console.log('🟦 [APP] openPortalSONOFF request body:', req.body)
-
-    const rawId = req.body?.idDevice
-    const idDevice = (typeof rawId !== 'undefined' && rawId !== null) ? parseInt(rawId.toString()) : NaN
-
-    if (Number.isNaN(idDevice) || idDevice <= 0) {
-        console.log('🔴 [APP] openPortalSONOFF invalid idDevice:', rawId)
-        return response.status(400).json({ state: 0, error: 'idDevice missing or invalid' })
-    }
-
-    let dataResult = { state: 0, error: 'Error, intentelo mas tarde!!' }
+    // Recibimos el ID que manda el botón de la web
+    let idDeviceDB = parseInt(req.body.idDevice?.toString());
+    let dataResult = { state: 1, error: undefined };
+    
     try {
-        const resEwe = await EWeLinkServiceInstance.setStatusByIdDevice(idDevice)
-        console.log('🟦 [APP] openPortalSONOFF response:', resEwe)
+        
+        if (!idDeviceDB || isNaN(idDeviceDB)) throw new Error('ID de dispositivo inválido');
+        
+        console.log(`[Petición al ERP] Solicitando abrir puerta para ID de BD: ${idDeviceDB}`);
 
-        if (resEwe && resEwe.data) {
-            dataResult = { state: 1, data: resEwe.data }
-        } else if (resEwe && typeof resEwe.error !== 'undefined') {
-            dataResult = { state: 0, error: resEwe.msg || resEwe.error }
-        } else {
-            dataResult = { state: 0, error: 'No response from EWeLink service' }
+        // Le pedimos al ERP que abra la puerta
+        let resERP = await EWeLinkServiceInstance.setStatusByIdDevice(idDeviceDB);
+
+        // Verificamos si el ERP nos devolvió un error
+        if (resERP && resERP.data && resERP.data.error !== 0 && resERP.data.error !== undefined) {
+            throw new Error(`El ERP devolvió error: ${resERP.data.msg}`);
         }
+        
+        console.log(`¡Éxito! El ERP abrió la puerta correctamente.`);
+
     } catch (err) {
-        console.log('🔴 [APP] openPortalSONOFF error:', err)
-        dataResult = { state: 0, error: 'Error, intentelo mas tarde!!' }
+        console.error("Error al comunicarse con el ERP:", err.message);
+        dataResult = { state: 0, error: 'Error al abrir la puerta. Inténtelo más tarde.' };
     }
 
-    response.json(dataResult)
-})
+    response.json(dataResult);
+});
 
 app.get('/getstatussonoff', auth, async (req, res) => { // Envia la request
     let idDevicesIn = (req.query.idDevices || 0).toString()
@@ -1081,15 +1079,6 @@ app.get('/getstatussonoff', auth, async (req, res) => { // Envia la request
     }
 
     res.json(statusTmp)
-})
-
-/**
- * Pantalla para mostrar QR de fichaje (sin autenticación)
- */
-app.get("/qr-fichaje", (req, res) => {
-    res.render('qr-fichaje', {
-        title: 'QR Fichaje - MyCityHome'
-    });
 })
 
 /**
@@ -1135,12 +1124,7 @@ app.get("/fichar", auth, checkRole(["admin",
  */
 app.post("/login", async (req, res) => {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress
-    // DEBUG: loguear intentos de login para depuración
-    try {
-        console.log('[DEBUG] POST /login from IP:', ip, 'body:', JSON.stringify(req.body));
-    } catch (err) {
-        console.log('[DEBUG] POST /login from IP:', ip, 'body: <unserializable>');
-    }
+    console.log(`ip -> ${ip}`)
     let _userLogin = await checkUser(req.body.name || '', req.body.password || '')
     if (_userLogin) {
         req.session.token = _userLogin.token
@@ -1159,7 +1143,6 @@ app.post("/login", async (req, res) => {
         if (`${req.session.pathprev}`.includes("fichar")) res.redirect(`${req.session.pathprev}?qr=${encodeURIComponent(req.session.qr)}`)
         else res.redirect("/")
     } else {
-        console.log('[DEBUG] Login failed for IP:', ip, 'user:', req.body.name || '<empty>');
         res.redirect("/login")
     }
 })
@@ -1175,288 +1158,7 @@ app.post("/logout", (req, res) => {
     res.redirect("/login?loggedout=true")
 })
 
-// Configurar servidor HTTP con Socket.io
-const http = require('http');
-const httpServer = http.createServer(app);
-const { Server } = require('socket.io');
-const io = new Server(httpServer, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-    }
-});
-
-// Handler para conexiones Socket.io
-io.on('connection', (socket) => {
-    console.log('🔵 Cliente conectado:', socket.id);
-
-    // Evento para agregar cliente
-    socket.on('Log', (clientId, msg) => {
-        console.log('📝 Log from client:', clientId, msg);
-    });
-
-    // Evento principal para procesar acciones de cerraduras
-    socket.on('RequestLock', async (clientId, msgString) => {
-        console.log('🔐 [DEBUG] RequestLock recibido de:', clientId, 'con datos:', msgString);
-
-        // --- Lógica para asegurar existencia de dispositivo y manija ---
-        async function ensureDeviceAndManijaExist(idPiso, idDevice) {
-            const apiBase = `${Constants().API_REST}/api/public/apartments/${idPiso}`;
-            // 1. Verificar si el dispositivo existe
-            let deviceExists = false;
-            try {
-                console.log(`[LOG] Verificando existencia de dispositivo: ${idDevice} en piso: ${idPiso}`);
-                const resDevice = await fetch(`${apiBase}/devices/${idDevice}`);
-                console.log(`[LOG] Respuesta verificación dispositivo: status=${resDevice.status}`);
-                if (resDevice.ok) {
-                    deviceExists = true;
-                }
-            } catch (e) {
-                deviceExists = false;
-                console.error(`[LOG] Error verificando dispositivo:`, e);
-            }
-
-            // 2. Si no existe, crearlo
-            if (!deviceExists) {
-                // Crear dispositivo básico (ajustar campos según API real)
-                const deviceData = {
-                    id: idDevice,
-                    etiqueta: `Dispositivo ${idDevice}`,
-                    type: 'lock',
-                    estado: 1
-                };
-                console.log(`[LOG] Dispositivo no existe, creando:`, deviceData);
-                try {
-                    const resCreateDevice = await fetch(`${apiBase}/devices`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'x-user-id': '1' },
-                        body: JSON.stringify(deviceData)
-                    });
-                    console.log(`[LOG] Respuesta creación dispositivo: status=${resCreateDevice.status}`);
-                    if (!resCreateDevice.ok) {
-                        const errText = await resCreateDevice.text();
-                        console.error(`[LOG] Error creando dispositivo:`, errText);
-                    }
-                } catch (e) {
-                    console.error(`[LOG] Error lanzando POST para crear dispositivo:`, e);
-                }
-            }
-
-            // 3. Verificar si la manija existe (asumimos endpoint /handles)
-            let manijaExists = false;
-            let manijaId = null;
-            try {
-                console.log(`[LOG] Verificando existencia de manija para dispositivo: ${idDevice}`);
-                const resManija = await fetch(`${apiBase}/devices/${idDevice}/handles`);
-                console.log(`[LOG] Respuesta verificación manija: status=${resManija.status}`);
-                if (resManija.ok) {
-                    const manijas = await resManija.json();
-                    if (Array.isArray(manijas) && manijas.length > 0) {
-                        manijaExists = true;
-                        // Aceptar múltiples formas de id retornadas por la API: id, idmanija, id_manija o iddispositivo
-                        manijaId = manijas[0].id || manijas[0].idmanija || manijas[0].id_manija || manijas[0].iddispositivo || null;
-                    } else {
-                        manijaExists = false;
-                    }
-                    console.log(`[LOG] Manijas encontradas:`, manijas);
-                }
-            } catch (e) {
-                manijaExists = false;
-                console.error(`[LOG] Error verificando manija:`, e);
-            }
-
-            // 4. Si no existe, crear manija básica
-            if (!manijaExists) {
-                const manijaData = {
-                    iddispositivo: idDevice,
-                    etiqueta: `Manija ${idDevice}`,
-                    estado: 1
-                };
-                console.log(`[LOG] Manija no existe, creando:`, manijaData);
-                try {
-                    const resCreateManija = await fetch(`${apiBase}/devices/${idDevice}/handles`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'x-user-id': '1' },
-                        body: JSON.stringify(manijaData)
-                    });
-                    console.log(`[LOG] Respuesta creación manija: status=${resCreateManija.status}`);
-                        if (resCreateManija.ok) {
-                        const manijaCreated = await resCreateManija.json();
-                        // La API puede devolver id/idmanija/id_manija o iddispositivo: usarlo como id de la manija
-                        manijaId = manijaCreated.id || manijaCreated.idmanija || manijaCreated.id_manija || manijaCreated.iddispositivo || null;
-                    } else {
-                        const errText = await resCreateManija.text();
-                        console.error(`[LOG] Error creando manija:`, errText);
-                    }
-                } catch (e) {
-                    console.error(`[LOG] Error lanzando POST para crear manija:`, e);
-                }
-            }
-            // Devolver el id de la manija para usarlo en la creación de códigos
-            return manijaId;
-        }
-
-        try {
-            const dataJSON = JSON.parse(msgString);
-            console.log('📦 Datos recibidos:', dataJSON);
-
-            const { cmd, idDevice, idPiso, code, days, user, idTypeCode } = dataJSON;
-
-            let response = {
-                status: 0,
-                msg: 'Error procesando solicitud'
-            };
-
-            // Procesar comando newCode
-            if (cmd === 'newCode') {
-                console.log('🆕 Procesando newCode para dispositivo:', idDevice, 'piso:', idPiso);
-
-                // --- Asegurar existencia de dispositivo y manija antes de crear código ---
-                const manijaId = await ensureDeviceAndManijaExist(idPiso, idDevice);
-
-                // --- Verificar si ya existe el código para esa manija/dispositivo ---
-                try {
-                    const checkUrl = `${Constants().API_REST}/api/public/apartments/${idPiso}/devices/${idDevice}/codes?codigo=${encodeURIComponent(code)}`;
-                    console.log('[CHECK] Verificando existencia previa de código:', checkUrl);
-                    const checkResp = await fetch(checkUrl);
-                    if (checkResp.ok) {
-                        const checkData = await checkResp.json();
-                        if (Array.isArray(checkData) && checkData.length > 0) {
-                            // Ya existe el código
-                            response = {
-                                status: 0,
-                                msg: `El código ${code} ya existe para este dispositivo/manija. Usa uno diferente.`
-                            };
-                            socket.emit('ResponseSocketBluetooth', clientId, JSON.stringify(response));
-                            console.log('📤 Respuesta enviada:', response);
-                            return;
-                        }
-                    }
-                } catch (err) {
-                    console.error('[CHECK] Error verificando código existente:', err);
-                    // Si falla la verificación, seguimos pero lo logueamos
-                }
-
-                // Calcular timestamps
-                const now = new Date();
-                const timestampInicio = Math.floor(now.getTime() / 1000);
-                const fechaVigInicio = now.toISOString();
-
-                const endDate = new Date(now);
-                endDate.setDate(endDate.getDate() + days);
-                const timestampFin = Math.floor(endDate.getTime() / 1000);
-                const fechaVigFin = endDate.toISOString();
-
-                // Preparar datos para la API
-                const apiData = {
-                    log_data: {
-                        accion: 'Agregar código',
-                        resultado: '1',  // 1 = Correcto, 0 = Fallido
-                        usuario: user,
-                        data: JSON.stringify({ codigo: code, dias: days }),
-                        tipo_ejecucion: 'Manual',
-                        observacion: `Código ${code} creado con vigencia de ${days} días`
-                    },
-                    code_data: {
-                        codigo: code.toString(),
-                        dias: parseInt(days),
-                        timestamp_inicio: timestampInicio,
-                        timestamp_fin: timestampFin,
-                        fecha_vig_inicio: fechaVigInicio,
-                        fecha_vig_fin: fechaVigFin,
-                        idtipocodigo: idTypeCode ? parseInt(idTypeCode) : 1,
-                        idmanija: manijaId // <-- CRÍTICO: asociar el código a la manija correcta
-                    }
-                };
-
-                // LOG AVANZADO: mostrar datos enviados a la API
-                console.log('🔎 apiData a enviar:', JSON.stringify(apiData, null, 2));
-
-                try {
-                    // Llamar a la API REST pública para guardar el código
-                    const apiUrl = `${Constants().API_REST}/api/public/apartments/${idPiso}/devices/${idDevice}/actions`;
-                    console.log('🌐 Llamando a API:', apiUrl);
-
-                    const apiResponse = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'x-user-id': '1'  // ID del usuario superadmin para operaciones del sistema
-                        },
-                        body: JSON.stringify(apiData)
-                    });
-
-                    // LOG AVANZADO: mostrar status y headers de la respuesta
-                    console.log('🔎 Respuesta API status:', apiResponse.status, apiResponse.statusText);
-                    console.log('🔎 Respuesta API headers:', JSON.stringify([...apiResponse.headers]));
-
-                    if (apiResponse.ok) {
-                        const result = await apiResponse.json();
-                        console.log('✅ Código guardado exitosamente:', result);
-                        response = {
-                            status: 1,
-                            msg: `Código ${code} creado exitosamente con vigencia de ${days} días`
-                        };
-                    } else {
-                        const errorText = await apiResponse.text();
-                        console.error('❌ Error de API:', errorText);
-                        // LOG AVANZADO: mostrar body de error parseado si es posible
-                        let apiMsg = 'Error al guardar el código en la base de datos';
-                        try {
-                            const errorJson = JSON.parse(errorText);
-                            console.error('❌ Error de API (JSON):', errorJson);
-                            if (errorJson && errorJson.error) {
-                                apiMsg = errorJson.error;
-                            }
-                        } catch (e) {
-                            // No es JSON
-                        }
-                        // LOG extra: dump de datos enviados
-                        console.error('❌ Dump de apiData enviado:', JSON.stringify(apiData, null, 2));
-                        response.msg = apiMsg;
-                    }
-                } catch (apiError) {
-                    console.error('❌ Error llamando a la API:', apiError);
-                    // LOG extra: dump de datos enviados
-                    console.error('❌ Dump de apiData enviado:', JSON.stringify(apiData, null, 2));
-                    response.msg = 'Error de conexión con la API';
-                }
-            } else if (cmd === 'openLock') {
-                response = {
-                    status: 1,
-                    msg: 'Cerradura abierta (simulado)'
-                };
-            } else if (cmd === 'setCard') {
-                response = {
-                    status: 1,
-                    msg: 'Tarjeta procesada (simulado)'
-                };
-            } else if (cmd === 'syncTime') {
-                response = {
-                    status: 1,
-                    msg: 'Hora sincronizada (simulado)'
-                };
-            }
-
-            // Enviar respuesta al cliente
-            socket.emit('ResponseSocketBluetooth', clientId, JSON.stringify(response));
-            console.log('📤 Respuesta enviada:', response);
-
-        } catch (error) {
-            console.error('❌ Error procesando RequestLock:', error);
-            socket.emit('ResponseSocketBluetooth', clientId, JSON.stringify({
-                status: 0,
-                msg: 'Error interno del servidor'
-            }));
-        }
-    });
-
-    socket.on('disconnect', () => {
-        console.log('🔴 Cliente desconectado:', socket.id);
-    });
-});
-
-httpServer.listen(PORT, '0.0.0.0', () => { console.log("Running on Port:", PORT); });
+app.listen(PORT, '0.0.0.0',() => { console.log("Running on Port: ", PORT) })
 
 // Sin uso
 function checkUserOld(username, pass) {
@@ -1472,11 +1174,9 @@ function checkUserOld(username, pass) {
 async function checkUser(user, password) {
     let _result = undefined
     try {
-        console.log(`[DEBUG] checkUser: calling AuthServiceInstance.login user=${user}`)
         _result = await AuthServiceInstance.login(user, password)
-        try { console.log('[DEBUG] checkUser: login response:', JSON.stringify(_result)) } catch(e) {}
     } catch (err) {
-        console.error('[DEBUG] checkUser: Error al consumir API:', err)
+        console.log('Error al consumir API')
     }
     return _result
 }
@@ -1621,6 +1321,7 @@ async function toggleDeviceApi(idDevice) {
 //control del servidor mirilla
 
 const { spawn } = require('child_process');
+const path = require('path');
 
 let mirillaProcess = null;
 const serverPath = path.join(__dirname, 'mirilla', 'serverMirilla.js');

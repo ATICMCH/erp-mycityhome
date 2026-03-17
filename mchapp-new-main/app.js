@@ -1131,9 +1131,9 @@ app.post("/login", async (req, res) => {
         req.session.name = _userLogin.data.username
         req.session.id = _userLogin.data.id
 
-        // Cambiar
+        // Cambiar: guardar el nombre del rol principal (ej: 'admin') en la sesión
         let _rolMain = [..._userLogin.data.roles].find(el => el.ismain === true)
-        req.session.role = (_rolMain) ? `${_rolMain.id}` : 'na'
+        req.session.role = (_rolMain && _rolMain.nombre) ? `${_rolMain.nombre}`.toLowerCase() : 'na'
 
         // Obtiene el departamento del usuario logeado
         req.session.department = _userLogin.data.department || 'na' // importante para ver el tema de los GAVIRs

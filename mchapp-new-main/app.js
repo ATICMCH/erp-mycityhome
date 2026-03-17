@@ -277,10 +277,11 @@ var nAuth = (req, res, next) => {
 //Chequea el rol de los usuarios
 function checkRole(roles) {
     return (req, res, next) => {
-        if (inArray(req.session.role, roles) == true)
-            return next();
-        else
-            return res.send("Cant acces this page")
+        // Permitir acceso a cualquier usuario autenticado.
+        // Esto evita la comprobación por nombre de rol y deja
+        // sólo la verificación de sesión (login).
+        if (req.session && req.session.name != undefined) return next();
+        else return res.send("Cant acces this page")
     }
 }
 function inArray(el, array) {

@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3018",
+    "dev": "NEXT_PUBLIC_API_URL=http://185.252.233.57:3016 HOST=0.0.0.0 next dev -p 3018",
     "build": "next build",
-    "start": "next start",
+    "start": "NEXT_PUBLIC_API_URL=http://185.252.233.57:3016 HOST=0.0.0.0 next start -p 3018",
     "lint": "next lint"
   },
   "dependencies": {

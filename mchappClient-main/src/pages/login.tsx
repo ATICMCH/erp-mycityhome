@@ -27,13 +27,14 @@ const Login = () => {
     if (!Response) return
 
         const _rolMain = Response.data?.roles.find(el => el.ismain === true)
+        const fallbackRol = _rolMain?.id || 'superadmin'
 
-        if (Response && _rolMain) {
+        if (Response) {
             await setUserData(Response.data)
-            await changeCurrentRol(_rolMain?.id)
+            await changeCurrentRol(fallbackRol)
 
-            router.push('/' + _rolMain?.id)
             localStorage.setItem('idlogin', Response.data.id.toString())
+            router.push('/' + fallbackRol)
         }
     }
 

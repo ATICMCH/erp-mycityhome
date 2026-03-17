@@ -77,8 +77,13 @@ const Login = () => {
                                     />
                                 </div>
                                 
-                                <button type="submit" className="border-0 mt-4 c-bg-0 transform hover:scale-110 transition-transform duration-200">
-                                    <img src="/img/ico/HomeLogin.svg" alt="Entrar" style={{ width: 80, height: 80 }} />
+                                <button type="submit" className="login-arrow-btn mt-4 transform hover:scale-110 transition-transform duration-200">
+                                <img
+                                    className='c-btnLogin'
+                                    src="/img/ico/icoArrow.svg"
+                                    style={{width: 120, height: 120}}
+                                    alt="Login"
+                                />
                                 </button>
 
                                 {isError && (

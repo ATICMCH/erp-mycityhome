@@ -27,6 +27,7 @@ class LockPush {
 
             const device: any = deviceDB
             const deviceType = (device.type || device.tdevice || '').toString().toLowerCase()
+            const idDeviceStr = idDevice.toString()
 
             // Manejo para dispositivos Sonoff / eWeLink
             if (deviceType.includes(Constants.type_device_sonoff) || deviceType.includes('sonoff')) {
@@ -66,7 +67,25 @@ class LockPush {
 
             // A. Extraer el Lock ID de la base de datos (El ID interno de la cerradura en los servidores de WeLock)
             const info = device.info_extra || {}
-            const lockId = info.lockId || info.lock_id || device.codigo || device.ref_dispositivo || null
+            let lockId: any = info.lockId || info.lock_id || device.codigo || device.ref_dispositivo || null
+
+            // Permite sobreescribir lockId por .env sin tocar BD (util para separar prod/pruebas)
+            const lockIdByDevice = process.env[`TTLOCK_LOCKID_DEVICE_${idDeviceStr}`]
+            if (lockIdByDevice) {
+                lockId = lockIdByDevice
+                console.log('[LockPush] lockId override por dispositivo:', idDeviceStr, '->', lockId)
+            } else if (process.env.TTLOCK_LOCKID_MAP) {
+                try {
+                    const lockIdMap: any = JSON.parse(process.env.TTLOCK_LOCKID_MAP)
+                    if (lockIdMap && lockIdMap[idDeviceStr]) {
+                        lockId = lockIdMap[idDeviceStr]
+                        console.log('[LockPush] lockId override por mapa:', idDeviceStr, '->', lockId)
+                    }
+                } catch (e) {
+                    console.log('[LockPush] TTLOCK_LOCKID_MAP inválido. Debe ser JSON válido.')
+                }
+            }
+
             if (!lockId) {
                 console.log('[LockPush] No hay identificador de cerradura (lockId/codigo).')
                 return { pushed: false, reason: 'no_lock_identifier' }

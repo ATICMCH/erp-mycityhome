@@ -1033,28 +1033,60 @@ app.post('/newCodeDirect', auth, async (req, res) => {
     const idPiso = parseInt((req.body.idPiso || '0').toString())
     const days = parseInt((req.body.days || '0').toString())
     const code = (req.body.code || '').toString().trim()
-    const idTypeCode = parseInt((req.body.idTypeCode || '0').toString()) || 0
+    let idTypeCode = parseInt((req.body.idTypeCode || '0').toString()) || 0
 
     if (!idDevice || !idPiso || !/^[0-9]{6}$/.test(code) || !(days > 0)) {
         res.status(400).json({ status: 0, msg: 'Datos inválidos para crear código' })
         return
     }
 
+    const toSqlDateTime = (d) => {
+        const pad = (n) => `${n}`.padStart(2, '0')
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+    }
+
     const endpointApi = `${ApiConfigurationInstance.pathApi}/api/public/apartments/${idPiso}/devices/${idDevice}/actions`
+
+    if (!idTypeCode || idTypeCode <= 0) {
+        try {
+            const typesResp = await TypeCodeServiceInstance.getAll()
+            const firstType = (typesResp?.data || [])[0]
+            idTypeCode = firstType ? parseInt(firstType.id || '0') : 0
+        } catch (e) {}
+    }
+
+    if (!idTypeCode || idTypeCode <= 0) {
+        res.status(400).json({ status: 0, msg: 'No se pudo resolver idtipocodigo' })
+        return
+    }
+
+    const nowMs = Date.now()
+    const startTs = Math.floor(nowMs / 1000)
+    const endTs = startTs + (days * 24 * 60 * 60)
+    const startDate = toSqlDateTime(new Date(nowMs))
+    const endDate = toSqlDateTime(new Date(nowMs + (days * 24 * 60 * 60 * 1000)))
 
     const payload = {
         log_data: {
             dispositivo_ejecucion: 'Web',
             accion: 'setCode',
             resultado: '1',
-            data: {},
+            data: {
+                client: `PISO_${idPiso}`,
+                clientFrom: `WEB_${req.session.id || 'NA'}`,
+                msg: `Solicitud creación código ${code}`
+            },
             usuario: req.session.name || 'NA'
         },
         code_data: {
             codigo: code,
             dias: days,
             idtipocodigo: idTypeCode,
-            codigo_tipocodigo: ''
+            codigo_tipocodigo: '',
+            timestamp_inicio: startTs,
+            timestamp_fin: endTs,
+            fecha_vig_inicio: startDate,
+            fecha_vig_fin: endDate
         },
         key_data: {}
     }

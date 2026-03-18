@@ -123,11 +123,12 @@ const handler = nc(
             // Intentar push del código al dispositivo (si existe integración)
             try {
                   const codeToPush = (dataDB as IActionsLogApartment).code_data?.codigo || (code_data.codigo || '')
+                  const pushDays = Number((dataDB as IActionsLogApartment).code_data?.dias || code_data.dias || 0)
                   const idDeviceNum = Number(idDevice)
                   const idApartmentNum = Number(idApartment)
                   if (codeToPush && idDeviceNum) {
                         // no bloqueamos la respuesta ante fallo en el push
-                        LockPushInstance.pushCodeToLock({ idDevice: idDeviceNum, idApartment: idApartmentNum, code: codeToPush })
+                        LockPushInstance.pushCodeToLock({ idDevice: idDeviceNum, idApartment: idApartmentNum, code: codeToPush, days: pushDays })
                         .then((r: any) => console.log('[LOCKPUSH] Resultado push:', r))
                         .catch((e: any) => console.error('[LOCKPUSH] Error push:', e))
                   } else {

@@ -208,19 +208,53 @@ const GestionPiso = {
             const elTypeCode = document.getElementById('typecode')
             // Gestion de validaciones
             if (!GestionPiso.validateFieldsNewCode(dayF, codeF, elTypeCode)) return
-            const dataJSON = {
-                  cmd: Constants.ACTION_NEWCODE,
-                  client: codeDeviceTarget,
-                  clientFrom: clientFromID,
-                  days: dayF,
-                  code: codeF,
-                  user,
-                  role,
-                  idDevice,
-                  idPiso: idPiso,
-                  idTypeCode: elTypeCode ? parseInt(elTypeCode.value.trim()) : undefined
-            };
-            GestionPiso.emitRequestServer(dataJSON);
+
+            if (!(idDevice && idPiso)) {
+                  alert("Información no válida. Por favor intentelo más tarde!")
+                  return
+            }
+
+            modalApp.show()
+            fetch('/newCodeDirect', {
+                  method: 'POST',
+                  headers: {
+                        "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                        idDevice,
+                        idPiso,
+                        days: dayF,
+                        code: codeF,
+                        idTypeCode: elTypeCode ? parseInt(elTypeCode.value.trim()) : undefined
+                  })
+            })
+                  .then(res => res.json())
+                  .then(res => {
+                        const codeAccion = Util.getCodeAlert(actionExec)
+                        const msgOK = document.getElementById(`msgOK_${codeAccion}`)
+                        const msgKO = document.getElementById(`msgKO_${codeAccion}`)
+
+                        if (res.status === 1) {
+                              msgOK.innerHTML = `${res.msg || 'Operación correcta'}<br /> Código: ${codeF}`
+                              Util.showAlert(`alertOK_${codeAccion}`)
+                              Util.hideAlert(`alertKO_${codeAccion}`)
+                              GestionPiso.clearForm()
+                        } else {
+                              msgKO.innerHTML = res.msg || 'Error al crear el código'
+                              Util.showAlert(`alertKO_${codeAccion}`)
+                              Util.hideAlert(`alertOK_${codeAccion}`)
+                        }
+                  })
+                  .catch((err) => {
+                        const codeAccion = Util.getCodeAlert(actionExec)
+                        const msgKO = document.getElementById(`msgKO_${codeAccion}`)
+                        msgKO.innerHTML = 'Error de red creando el código'
+                        Util.showAlert(`alertKO_${codeAccion}`)
+                        Util.hideAlert(`alertOK_${codeAccion}`)
+                  })
+                  .finally(() => {
+                        modalApp.hide()
+                  })
       },
 
       validateFieldsNewCode: (dayF, codeF, elTypeCode) => {

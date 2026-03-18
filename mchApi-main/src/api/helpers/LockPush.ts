@@ -4,6 +4,7 @@ import ParametrosGeneralesBusiness from '../business/ParametrosGeneralesBusiness
 import EWeLinkInstance from './EWeLink'
 import Constants from './Constants'
 import axios from 'axios'
+import * as crypto from 'crypto'
 
 class LockPush {
     constructor() {}
@@ -11,9 +12,9 @@ class LockPush {
     /**
      * Intento de push del código al dispositivo tipo Lock (TTLock/WeLock).
      */
-    async pushCodeToLock(opts: { idDevice: number, idApartment?: number, code: string }) {
+    async pushCodeToLock(opts: { idDevice: number, idApartment?: number, code: string, days?: number }) {
         try {
-            const { idDevice, code } = opts
+            const { idDevice, code, days } = opts
             console.log('[LockPush] pushCodeToLock -> device:', idDevice, 'code:', code)
 
             // 1. Obtener datos del dispositivo
@@ -55,29 +56,6 @@ class LockPush {
                 }
             }
 
-            if (deviceType.includes(Constants.type_device_sonoff) || deviceType.includes('sonoff')) {
-                console.log('[LockPush] Detectado dispositivo eWeLink, intentando push')
-                const paramBus = new ParametrosGeneralesBusiness(BigInt(1), 1, false)
-                const tokenParam: any = await paramBus.getByCode('TOKEN-EWELINK')
-                if ((tokenParam as any).error) {
-                    return { pushed: false, reason: 'no_ewelink_token' }
-                }
-
-                const token = (tokenParam && tokenParam.data && tokenParam.data.data && tokenParam.data.data.accessToken) ? tokenParam.data.data.accessToken : tokenParam.valor
-                const idDeviceEwe = device.codigo || (device.info_extra && (device.info_extra.deviceid || device.info_extra.deviceId)) || null
-                if (!idDeviceEwe) {
-                    return { pushed: false, reason: 'no_ewelink_deviceid' }
-                }
-
-                try {
-                    const res = await EWeLinkInstance.setStatus(token, idDeviceEwe.toString())
-                    const pushed = (res && (res as any).error === 0) ? true : false
-                    return { pushed, reason: pushed ? 'ok' : 'ewelink_error', info: res }
-                } catch (err) {
-                    return { pushed: false, reason: 'exception', error: err }
-                }
-            }
-
             // ---------------------------------------------------------
             // MANEJO TTLOCK / WELOCK (CERRADURAS) - NUEVA INTEGRACIÓN
             // ---------------------------------------------------------
@@ -98,7 +76,7 @@ class LockPush {
             const TT_CLIENT_ID = process.env.TTLOCK_CLIENT_ID || ''
             const TT_CLIENT_SECRET = process.env.TTLOCK_CLIENT_SECRET || ''
             const TT_USERNAME = process.env.TTLOCK_USERNAME || '' 
-            const TT_PASSWORD = process.env.TTLOCK_PASSWORD || '' // Debe estar en formato MD5
+            const TT_PASSWORD = process.env.TTLOCK_PASSWORD || ''
             const TT_API_URL = process.env.TTLOCK_API_URL || 'https://euapi.ttlock.com' // Servidor Europeo
 
             if (!TT_CLIENT_ID || !TT_CLIENT_SECRET || !TT_USERNAME || !TT_PASSWORD) {
@@ -109,12 +87,16 @@ class LockPush {
             // C. Autenticarse y conseguir el Access Token
             let accessToken = null;
             try {
+                const md5Password = /^[a-fA-F0-9]{32}$/.test(TT_PASSWORD)
+                    ? TT_PASSWORD
+                    : crypto.createHash('md5').update(TT_PASSWORD).digest('hex')
+
                 const tokenResponse = await axios.post(`${TT_API_URL}/oauth2/token`, null, {
                     params: {
                         clientId: TT_CLIENT_ID,
                         clientSecret: TT_CLIENT_SECRET,
                         username: TT_USERNAME,
-                        password: TT_PASSWORD, 
+                        password: md5Password,
                         grant_type: 'password'
                     }
                 });
@@ -131,8 +113,9 @@ class LockPush {
             // D. Enviar el código a la cerradura
             console.log(`[LockPush] Token obtenido. Añadiendo código ${code} a la cerradura ${lockId}...`)
             
+            const validDays = Number(days) > 0 ? Number(days) : 1
             const startDate = new Date().getTime();
-            const endDate = startDate + (365 * 24 * 60 * 60 * 1000); // Válido por 1 año por defecto
+            const endDate = startDate + (validDays * 24 * 60 * 60 * 1000);
 
             try {
                 const pwdResponse = await axios.post(`${TT_API_URL}/v3/keyboardPwd/add`, null, {

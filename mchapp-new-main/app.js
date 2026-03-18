@@ -1026,6 +1026,63 @@ app.post('/update', auth, async (req, res) => {
     }
 })
 
+// Crear código de manija por API cloud (sin depender del móvil puente/socket)
+app.post('/newCodeDirect', auth, async (req, res) => {
+    const idDevice = parseInt((req.body.idDevice || '0').toString())
+    const idPiso = parseInt((req.body.idPiso || '0').toString())
+    const days = parseInt((req.body.days || '0').toString())
+    const code = (req.body.code || '').toString().trim()
+    const idTypeCode = parseInt((req.body.idTypeCode || '0').toString()) || 0
+
+    if (!idDevice || !idPiso || !/^[0-9]{6}$/.test(code) || !(days > 0)) {
+        res.status(400).json({ status: 0, msg: 'Datos inválidos para crear código' })
+        return
+    }
+
+    const endpointApi = `${ApiConfigurationInstance.pathApi}/api/public/apartments/${idPiso}/devices/${idDevice}/actions`
+
+    const payload = {
+        log_data: {
+            dispositivo_ejecucion: 'Web',
+            accion: 'setCode',
+            resultado: '1',
+            data: {},
+            usuario: req.session.name || 'NA'
+        },
+        code_data: {
+            codigo: code,
+            dias: days,
+            idtipocodigo: idTypeCode,
+            codigo_tipocodigo: ''
+        },
+        key_data: {}
+    }
+
+    try {
+        const response = await fetch(endpointApi, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Token': req.session.token || '',
+                'x-user-id': (req.session.id || '').toString()
+            },
+            body: JSON.stringify(payload)
+        })
+
+        const dataApi = await response.json().catch(() => ({}))
+        if (response.status !== 200) {
+            const msgError = (dataApi && (dataApi.msg || dataApi.error)) ? (dataApi.msg || dataApi.error) : 'Error creando código en API'
+            res.status(409).json({ status: 0, msg: msgError, data: dataApi })
+            return
+        }
+
+        res.json({ status: 1, msg: 'Código creado correctamente', data: dataApi })
+    } catch (err) {
+        console.error('[newCodeDirect] Error llamando a API:', err)
+        res.status(500).json({ status: 0, msg: 'Error de comunicación con API' })
+    }
+})
+
 app.post('/openPortalSONOFF', async (req, response) => {
     // Recibimos el ID que manda el botón de la web
     let idDeviceDB = parseInt(req.body.idDevice?.toString());

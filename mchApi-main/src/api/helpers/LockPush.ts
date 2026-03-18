@@ -120,8 +120,11 @@ class LockPush {
                     }
                 });
                 accessToken = tokenResponse.data.access_token;
+                if (!accessToken) {
+                    console.error('[LockPush] OAuth response sin access_token:', tokenResponse.data)
+                }
             } catch (authError) {
-                console.error('[LockPush] Error en la autenticación con TTLock/WeLock.')
+                console.error('[LockPush] Error en la autenticación con TTLock/WeLock:', (authError as any)?.response?.data || authError)
                 return { pushed: false, reason: 'auth_error' }
             }
 

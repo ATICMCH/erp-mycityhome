@@ -1,54 +1,44 @@
 /* eslint-disable */
 const axios = require('axios');
 
-async function diagnosticoWeLock() {
-  console.log("1. Solicitando Token con credenciales de la App WeLock...");
+async function diagnosticoOficialWeLock() {
+  console.log("1. Conectando con los servidores oficiales de WeLock...");
   
-  // Probamos los dos servidores principales (Global y Europa)
-  const servers = ['https://api.ttlock.com', 'https://euapi.ttlock.com'];
-  
-  for (let server of servers) {
-      console.log(`\n--- Probando servidor: ${server} ---`);
-      
-      // Formateamos los datos exactamente como los exige el servidor de WeLock
-      const params = new URLSearchParams();
-      params.append('clientId', 'WELOCK1808071501');
-      params.append('clientSecret', '12b7de42b015e9db');
-      params.append('username', 'atic@mycityhome.es');
-      params.append('password', '79a76d8afffa8a2006e55869f94ba143');
-      params.append('grant_type', 'password');
+  try {
+    // PASO 1: Login según la nueva documentación
+    const authRes = await axios.post('https://api.we-lock.com/API/Auth/Token', {
+      appID: 'WELOCK2202161033',
+      secret: '349910dfcdfac75df0fd1cf2cbb02adb' // <-- Espacio corregido aquí
+    });
 
-      try {
-        const tokenRes = await axios.post(`${server}/oauth2/token`, params);
-        
-        // Si el servidor nos rechaza y devuelve un error interno
-        if (tokenRes.data.errcode || !tokenRes.data.access_token) {
-             console.log("? Rechazado. Motivo:", tokenRes.data);
-             continue; // Pasamos a probar el siguiente servidor
+    if (authRes.data.code !== 0) {
+      console.log("? WeLock rechazó las credenciales:", authRes.data);
+      return;
+    }
+    
+    const token = authRes.data.data.accessToken;
+    console.log("? ¡Conexión exitosa! Token WeLock generado:", token);
+
+    // PASO 2: Buscar las cerraduras de tu cuenta (DeviceLibrary)
+    console.log("\n2. Buscando cerraduras en tu cuenta MyCityHome...");
+    const libraryRes = await axios.post('https://api.we-lock.com/API/Device/DeviceLibrary', 
+      {
+        appID: 'WELOCK2202161033'
+      }, 
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
-        
-        const token = tokenRes.data.access_token;
-        console.log("? ¡Conexión exitosa! Token generado.");
-
-        console.log("\n2. Buscando cerraduras en este servidor...");
-        const locksRes = await axios.get(`${server}/v3/lock/list`, {
-          params: {
-            clientId: 'WELOCK1808071501',
-            accessToken: token,
-            pageNo: 1,
-            pageSize: 20,
-            date: new Date().getTime()
-          }
-        });
-
-        console.log("?? Cerraduras encontradas:");
-        console.dir(locksRes.data, { depth: null });
-        return; // Salimos porque ya tuvimos éxito
-
-      } catch (error) {
-        console.log("? Error de red HTTP:", error.message);
       }
+    );
+
+    console.log("?? Cerraduras encontradas (Librería):");
+    console.dir(libraryRes.data, { depth: null });
+
+  } catch (error) {
+    console.log("? Error de red HTTP:", error.message);
+    if (error.response) console.log(error.response.data);
   }
 }
 
-diagnosticoWeLock();
+diagnosticoOficialWeLock();

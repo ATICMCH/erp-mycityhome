@@ -10,12 +10,12 @@ class LockPush {
     constructor() {}
 
     /**
-     * Intento de push del código al dispositivo tipo Lock (TTLock/WeLock).
+     * Intento de push del código al dispositivo tipo Lock (WeLock).
      */
     async pushCodeToLock(opts: { idDevice: number, idApartment?: number, code: string, days?: number }) {
         try {
             const { idDevice, code, days } = opts
-            console.log('[LockPush] pushCodeToLock -> device:', idDevice, 'code:', code)
+            console.log('[LockPush] pushCodeToLock -> device:', idDevice, 'código_dummy_frontend:', code)
 
             // 1. Obtener datos del dispositivo
             const deviceBusiness = new DeviceBusiness(BigInt(1), 1, false)
@@ -29,7 +29,9 @@ class LockPush {
             const deviceType = (device.type || device.tdevice || '').toString().toLowerCase()
             const idDeviceStr = idDevice.toString()
 
-            // Manejo para dispositivos Sonoff / eWeLink
+            // ---------------------------------------------------------
+            // MANEJO SONOFF / EWELINK (LUCES) - MANTENIDO INTACTO
+            // ---------------------------------------------------------
             if (deviceType.includes(Constants.type_device_sonoff) || deviceType.includes('sonoff')) {
                 console.log('[LockPush] Detected eWeLink/Sonoff device, attempting eWeLink push')
                 const paramBus = new ParametrosGeneralesBusiness(BigInt(1), 1, false)
@@ -58,31 +60,30 @@ class LockPush {
             }
 
             // ---------------------------------------------------------
-            // MANEJO TTLOCK / WELOCK (CERRADURAS) - NUEVA INTEGRACIÓN
+            // MANEJO WELOCK (CÓDIGOS OFFLINE MATEMÁTICOS)
             // ---------------------------------------------------------
             if (!deviceType.includes('ttlock') && !deviceType.includes('lock') && !deviceType.includes('welock')) {
-                console.log('[LockPush] Tipo de dispositivo no soportado:', deviceType)
                 return { pushed: false, reason: 'unsupported_device_type', deviceType }
             }
 
-            // A. Extraer el Lock ID de la base de datos (El ID interno de la cerradura en los servidores de WeLock)
+            // A. Extraer el Lock ID (deviceNumber) de la base de datos
             const info = device.info_extra || {}
             let lockId: any = info.lockId || info.lock_id || device.codigo || device.ref_dispositivo || null
 
-            // Permite sobreescribir lockId por .env sin tocar BD (util para separar prod/pruebas)
-            const lockIdByDevice = process.env[`TTLOCK_LOCKID_DEVICE_${idDeviceStr}`]
+            // Mantener lógica de override antigua por si se necesita probar sin cambiar la BD
+            const lockIdByDevice = process.env[`WELOCK_DEVICE_${idDeviceStr}`] || process.env[`TTLOCK_LOCKID_DEVICE_${idDeviceStr}`]
             if (lockIdByDevice) {
                 lockId = lockIdByDevice
-                console.log('[LockPush] lockId override por dispositivo:', idDeviceStr, '->', lockId)
-            } else if (process.env.TTLOCK_LOCKID_MAP) {
+                console.log('[LockPush] lockId override por variables .env:', idDeviceStr, '->', lockId)
+            } else if (process.env.WELOCK_LOCKID_MAP || process.env.TTLOCK_LOCKID_MAP) {
                 try {
-                    const lockIdMap: any = JSON.parse(process.env.TTLOCK_LOCKID_MAP)
+                    const mapStr = process.env.WELOCK_LOCKID_MAP || process.env.TTLOCK_LOCKID_MAP || '{}'
+                    const lockIdMap: any = JSON.parse(mapStr)
                     if (lockIdMap && lockIdMap[idDeviceStr]) {
                         lockId = lockIdMap[idDeviceStr]
-                        console.log('[LockPush] lockId override por mapa:', idDeviceStr, '->', lockId)
                     }
                 } catch (e) {
-                    console.log('[LockPush] TTLOCK_LOCKID_MAP inválido. Debe ser JSON válido.')
+                    console.log('[LockPush] Mapa de IDs inválido en .env')
                 }
             }
 
@@ -91,82 +92,78 @@ class LockPush {
                 return { pushed: false, reason: 'no_lock_identifier' }
             }
 
-            // B. Traer las credenciales de entorno del servidor
-            const TT_CLIENT_ID = process.env.TTLOCK_CLIENT_ID || ''
-            const TT_CLIENT_SECRET = process.env.TTLOCK_CLIENT_SECRET || ''
-            const TT_USERNAME = process.env.TTLOCK_USERNAME || '' 
-            const TT_PASSWORD = process.env.TTLOCK_PASSWORD || ''
-            const TT_API_URL = process.env.TTLOCK_API_URL || 'https://euapi.ttlock.com' // Servidor Europeo
+            // B. Traer las credenciales WeLock (Fallbacks directos en caso de que no existan en el .env)
+            const WL_APP_ID = process.env.WELOCK_APP_ID || 'WELOCK2202161033';
+            const WL_SECRET = process.env.WELOCK_SECRET || '349910dfcdfac75df0fd1cf2cbb02adb';
 
-            if (!TT_CLIENT_ID || !TT_CLIENT_SECRET || !TT_USERNAME || !TT_PASSWORD) {
-                console.log('[LockPush] Faltan variables de entorno TTLOCK en el archivo .env')
-                return { pushed: false, reason: 'no_credentials' }
-            }
-
-            // C. Autenticarse y conseguir el Access Token
-            let accessToken = null;
             try {
-                const md5Password = /^[a-fA-F0-9]{32}$/.test(TT_PASSWORD)
-                    ? TT_PASSWORD
-                    : crypto.createHash('md5').update(TT_PASSWORD).digest('hex')
-
-                const tokenResponse = await axios.post(`${TT_API_URL}/oauth2/token`, null, {
-                    params: {
-                        clientId: TT_CLIENT_ID,
-                        clientSecret: TT_CLIENT_SECRET,
-                        username: TT_USERNAME,
-                        password: md5Password,
-                        grant_type: 'password'
-                    }
+                // 1. Obtener Token de Autorización WeLock
+                const authRes = await axios.post('https://api.we-lock.com/API/Auth/Token', {
+                    appID: WL_APP_ID, 
+                    secret: WL_SECRET
                 });
-                accessToken = tokenResponse.data.access_token;
-                if (!accessToken) {
-                    console.error('[LockPush] OAuth response sin access_token:', tokenResponse.data)
+
+                if (authRes.data.code !== 0) {
+                    console.error('[LockPush] Error Auth WeLock:', authRes.data)
+                    return { pushed: false, reason: 'auth_error' };
                 }
-            } catch (authError) {
-                console.error('[LockPush] Error en la autenticación con TTLock/WeLock:', (authError as any)?.response?.data || authError)
-                return { pushed: false, reason: 'auth_error' }
-            }
+                const token = authRes.data.data.accessToken;
 
-            if (!accessToken) {
-                return { pushed: false, reason: 'no_access_token' }
-            }
+                // 2. Obtener el nombre Bluetooth (Obligatorio para la API de contraseñas offline)
+                const libraryRes = await axios.post('https://api.we-lock.com/API/Device/DeviceLibrary',
+                    { appID: WL_APP_ID },
+                    { headers: { 'Authorization': `Bearer ${token}` } }
+                );
+                
+                const targetDevice = libraryRes.data.data.find((d: any) => d.deviceNumber === lockId.toString());
+                if (!targetDevice || !targetDevice.bluetooth || targetDevice.bluetooth.length === 0) {
+                    console.error(`[LockPush] La cerradura ${lockId} no se encuentra en la cuenta WeLock.`)
+                    return { pushed: false, reason: 'device_not_found_in_welock' };
+                }
+                // Cogemos el nombre Bluetooth principal de esa cerradura
+                const bleName = targetDevice.bluetooth[0].deviceName;
 
-            // D. Enviar el código a la cerradura
-            console.log(`[LockPush] Token obtenido. Añadiendo código ${code} a la cerradura ${lockId}...`)
-            
-            const validDays = Number(days) > 0 ? Number(days) : 1
-            const startDate = new Date().getTime();
-            const endDate = startDate + (validDays * 24 * 60 * 60 * 1000);
+                // 3. Formatear fechas exactamente como pide WeLock (yyyy-MM-dd HH:mm)
+                const pad = (n: number) => n < 10 ? '0' + n : n;
+                const formatDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
-            try {
-                const pwdResponse = await axios.post(`${TT_API_URL}/v3/keyboardPwd/add`, null, {
-                    params: {
-                        clientId: TT_CLIENT_ID,
-                        accessToken: accessToken,
-                        lockId: lockId,
-                        keyboardPwd: code,
-                        keyboardPwdName: 'ERP_Codigo_' + code, // Nombre que se verá en la App
-                        startDate: startDate,
-                        endDate: endDate,
-                        addType: 2, // 2 = Contraseña Personalizada
-                        date: new Date().getTime()
+                const startDate = new Date();
+                const endDate = new Date();
+                // Usamos los días de vigencia que llegan de la página web (o 30 por defecto)
+                const validDays = Number(days) > 0 ? Number(days) : 30; 
+                endDate.setDate(startDate.getDate() + validDays);
+
+                // 4. Solicitar el Código Offline Matemático
+                console.log(`[LockPush] Solicitando PIN offline para la cerradura ${lockId} (Bluetooth: ${bleName})...`);
+                
+                const pwdRes = await axios.post('https://api.we-lock.com/API/Device/DeviceTempPassword', {
+                    appID: WL_APP_ID,
+                    deviceNumber: lockId.toString(),
+                    deviceBleName: bleName,
+                    startingTime: formatDate(startDate),
+                    endTime: formatDate(endDate),
+                    tempType: 0 // 0 = Modo Continuo (Válido a cualquier hora dentro de la fecha seleccionada)
+                }, { headers: { 'Authorization': `Bearer ${token}` } });
+
+                // 5. Evaluar respuesta final
+                if (pwdRes.data.code === 0) {
+                    const generatedPin = pwdRes.data.data;
+                    console.log('[LockPush] ¡Éxito! Código WeLock Offline Generado:', generatedPin);
+                    
+                    // IMPORTANTE: Devolvemos un mensaje formateado para que el frontend lo muestre claro
+                    return { 
+                        pushed: true, 
+                        reason: 'ok', 
+                        info: { pin: generatedPin },
+                        msg: `<span style="font-size: 16px;">Válido hasta: ${formatDate(endDate)}</span><br/><br/><strong style="font-size: 24px; color: #28a745;">PIN OFFLINE: ${generatedPin}</strong>`
                     }
-                });
-
-                const pwdResult = pwdResponse.data;
-                console.log('[LockPush] Respuesta API WeLock:', pwdResult);
-
-                if (pwdResult && pwdResult.errcode === 0) {
-                    console.log(`[LockPush] ¡Éxito! Código ${code} asignado a la puerta.`)
-                    return { pushed: true, reason: 'ok', info: pwdResult }
                 } else {
-                    console.error(`[LockPush] WeLock rechazó la orden. Razón: ${pwdResult.errmsg}`)
-                    return { pushed: false, reason: 'api_error', info: pwdResult }
+                    console.error('[LockPush] WeLock rechazó la creación del PIN:', pwdRes.data);
+                    return { pushed: false, reason: 'api_error', info: pwdRes.data }
                 }
 
-            } catch (pwdError) {
-                console.error('[LockPush] Error de red enviando código a WeLock:', pwdError)
+            } catch (apiError: any) {
+                console.error('[LockPush] Error de red conectando a la API WeLock:', apiError?.response?.data || apiError.message);
                 return { pushed: false, reason: 'api_request_failed' }
             }
 

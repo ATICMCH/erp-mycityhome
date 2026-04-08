@@ -123,9 +123,10 @@ class LockPush {
                 // Cogemos el nombre Bluetooth principal de esa cerradura
                 const bleName = targetDevice.bluetooth[0].deviceName;
 
-                // 3. Formatear fechas exactamente como pide WeLock (yyyy-MM-dd HH:mm)
+                // 3. Formatear fechas (WeLock EXIGE que los minutos terminen en 00, 15, 30 o 45)
                 const pad = (n: number) => n < 10 ? '0' + n : n;
-                const formatDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                const formatWeLockMinutes = (d: Date) => pad(Math.floor(d.getMinutes() / 15) * 15);
+                const formatDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${formatWeLockMinutes(d)}`;
 
                 const startDate = new Date();
                 const endDate = new Date();

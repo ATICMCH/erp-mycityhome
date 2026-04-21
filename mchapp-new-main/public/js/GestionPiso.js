@@ -211,94 +211,81 @@ const GestionPiso = {
       },
 
       actionNewCode: (idDevice = 0) => {
-            actionExec = Constants.ACTION_NEWCODE;
+    actionExec = Constants.ACTION_NEWCODE;
 
-            const dayF = parseInt(document.getElementById('vigencia').value.trim())
-            const codeF = parseInt(document.getElementById('codigo').value.trim())
-            const elTypeCode = document.getElementById('typecode')
-            // Gestion de validaciones
-            if (!GestionPiso.validateFieldsNewCode(dayF, codeF, elTypeCode)) return
+    // 1. OBTENCIÓN DE ELEMENTOS Y VALORES
+    const elVigencia = document.getElementById('vigencia');
+    const elTypeCode = document.getElementById('typecode');
+    
+    const dayF = elVigencia ? parseInt(elVigencia.value.trim()) : 0;
+    // Usamos el código ficticio 123456 porque WeLock generará el real matemáticamente
+    const codeF = 123456; 
 
-            const elVigencia = document.getElementById('vigencia');
-            const dayF = elVigencia ? parseInt(elVigencia.value.trim()) : 0;
+    // 2. VALIDACIONES
+    if (!dayF || dayF <= 0) {
+        Util.showErrorValidate(actionExec, 'Debes ingresar los días de vigencia');
+        return;
+    }
+
+    if (!(idDevice && idPiso)) {
+        alert("Información no válida. Por favor intentelo más tarde!");
+        return;
+    }
+
+    // 3. EJECUCIÓN
+    modalApp.show();
+    fetch('/newCodeDirect', {
+        method: 'POST',
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            idDevice,
+            idPiso,
+            days: dayF,
+            code: codeF,
+            idTypeCode: elTypeCode ? parseInt(elTypeCode.value.trim()) : undefined
+        })
+    })
+    .then(res => res.json())
+    .then(res => {
+        const codeAccion = Util.getCodeAlert(actionExec);
+        const msgOK = document.getElementById(`msgOK_${codeAccion}`);
+        const msgKO = document.getElementById(`msgKO_${codeAccion}`);
+
+        if (res.status === 1 || res.data) {
+            // 4. EXTRAEMOS EL PIN REAL MATEMÁTICO DESDE EL BACKEND
+            let pinWeLock = codeF;
+            if (res.data && res.data.code_data && res.data.code_data.codigo) {
+                pinWeLock = res.data.code_data.codigo;
+            } else if (res.data && res.data.data && res.data.data.code_data && res.data.data.code_data.codigo) {
+                pinWeLock = res.data.data.code_data.codigo;
+            }
+
+            // 5. MOSTRAR PIN GIGANTE
+            msgOK.innerHTML = `¡Operación Exitosa!<br /><br /><span style="font-size: 16px;">PIN WeLock Offline:</span><br /><strong style="font-size: 36px; color: #28a745; letter-spacing: 2px;">${pinWeLock}</strong>`;
             
-            // 1. CÓDIGO FALSO: WeLock lo ignorará y creará el suyo matemático
-            const codeF = 123456; 
-            const elTypeCode = document.getElementById('typecode')
-
-            // 2. VALIDAMOS SOLO LOS DÍAS
-            if (!dayF || dayF <= 0) {
-                  Util.showErrorValidate(actionExec, 'Debes ingresar los días de vigencia');
-                  return;
-            }
-
-
-            if (!(idDevice && idPiso)) {
-                  alert("Información no válida. Por favor intentelo más tarde!")
-                  return
-            }
-
-            modalApp.show()
-            fetch('/newCodeDirect', {
-                  method: 'POST',
-                  headers: {
-                        "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                        idDevice,
-                        idPiso,
-                        days: dayF,
-                        code: codeF,
-                        idTypeCode: elTypeCode ? parseInt(elTypeCode.value.trim()) : undefined
-                  })
-            })
-                  .then(res => res.json())
-                  .then(res => {
-                        const codeAccion = Util.getCodeAlert(actionExec)
-                        const msgOK = document.getElementById(`msgOK_${codeAccion}`)
-                        const msgKO = document.getElementById(`msgKO_${codeAccion}`)
-
-
-                        if (res.status === 1) {
-                              msgOK.innerHTML = `${res.msg || 'Operación correcta'}<br /> Código: ${codeF}`
-
-                        if (res.status === 1 || res.data) {
-                              // 3. EXTRAEMOS EL PIN REAL MATEMÁTICO DESDE EL BACKEND
-                              let pinWeLock = codeF;
-                              if (res.data && res.data.code_data && res.data.code_data.codigo) {
-                                    pinWeLock = res.data.code_data.codigo;
-                              } else if (res.data && res.data.data && res.data.data.code_data && res.data.data.code_data.codigo) {
-                                    pinWeLock = res.data.data.code_data.codigo;
-                              }
-
-                              // 4. PINTAMOS EL PIN GIGANTE EN VERDE
-                              msgOK.innerHTML = `¡Operación Exitosa!<br /><br /><span style="font-size: 16px;">PIN WeLock Offline:</span><br /><strong style="font-size: 36px; color: #28a745; letter-spacing: 2px;">${pinWeLock}</strong>`;
-                              
-
-                              Util.showAlert(`alertOK_${codeAccion}`)
-                              Util.hideAlert(`alertKO_${codeAccion}`)
-                              GestionPiso.clearForm()
-                        } else {
-                              msgKO.innerHTML = res.msg || 'Error al crear el código'
-                              Util.showAlert(`alertKO_${codeAccion}`)
-                              Util.hideAlert(`alertOK_${codeAccion}`)
-                        }
-                  })
-                  .catch((err) => {
-
-
-                        console.error(err);
-
-                        const codeAccion = Util.getCodeAlert(actionExec)
-                        const msgKO = document.getElementById(`msgKO_${codeAccion}`)
-                        msgKO.innerHTML = 'Error de red creando el código'
-                        Util.showAlert(`alertKO_${codeAccion}`)
-                        Util.hideAlert(`alertOK_${codeAccion}`)
-                  })
-                  .finally(() => {
-                        modalApp.hide()
-                  })
-      },
+            Util.showAlert(`alertOK_${codeAccion}`);
+            Util.hideAlert(`alertKO_${codeAccion}`);
+            GestionPiso.clearForm();
+        } else {
+            msgKO.innerHTML = res.msg || 'Error al crear el código';
+            Util.showAlert(`alertKO_${codeAccion}`);
+            Util.hideAlert(`alertOK_${codeAccion}`);
+        }
+    })
+    .catch((err) => {
+        console.error(err);
+        const codeAccion = Util.getCodeAlert(actionExec);
+        const msgKO = document.getElementById(`msgKO_${codeAccion}`);
+        msgKO.innerHTML = 'Error de red creando el código';
+        Util.showAlert(`alertKO_${codeAccion}`);
+        Util.hideAlert(`alertOK_${codeAccion}`);
+    })
+    .finally(() => {
+        modalApp.hide();
+    });
+},
 
       validateFieldsNewCode: (dayF, codeF, elTypeCode) => {
             let result = true

@@ -125,16 +125,16 @@ const GestionPiso = {
                         Util.hideAlert(`alertKO_${codeAccion}`);
                         switch (actionExec) {
                               case Constants.ACTION_NEWCODE:
-<<<<<<< HEAD
+
                                     msgOK.innerHTML = dataJson.msg + `<br /> Código: ${codeValue}`;
-=======
+
                                     let pinSocket = codeValue;
                                     // Si la respuesta viene por socket, extraemos el código real
                                     if (dataJson.data && dataJson.data.code_data && dataJson.data.code_data.codigo) {
                                           pinSocket = dataJson.data.code_data.codigo;
                                     }
                                     msgOK.innerHTML = `¡Operación Exitosa!<br /><br /><strong style="font-size: 32px; color: #28a745; letter-spacing: 2px;">${pinSocket}</strong>`;
->>>>>>> 58db678d97a54c17d3a20494fc4f0125c9d151ec
+
                                     break
                               case Constants.ACTION_SETCARD:
                                     if (actionValue === '1') msgOK.innerHTML = dataJson.msg + `<br /> Se ha AGREGADO la tarjeta: ${idQrValue}`;
@@ -212,13 +212,13 @@ const GestionPiso = {
 
       actionNewCode: (idDevice = 0) => {
             actionExec = Constants.ACTION_NEWCODE;
-<<<<<<< HEAD
+
             const dayF = parseInt(document.getElementById('vigencia').value.trim())
             const codeF = parseInt(document.getElementById('codigo').value.trim())
             const elTypeCode = document.getElementById('typecode')
             // Gestion de validaciones
             if (!GestionPiso.validateFieldsNewCode(dayF, codeF, elTypeCode)) return
-=======
+
             const elVigencia = document.getElementById('vigencia');
             const dayF = elVigencia ? parseInt(elVigencia.value.trim()) : 0;
             
@@ -231,7 +231,7 @@ const GestionPiso = {
                   Util.showErrorValidate(actionExec, 'Debes ingresar los días de vigencia');
                   return;
             }
->>>>>>> 58db678d97a54c17d3a20494fc4f0125c9d151ec
+
 
             if (!(idDevice && idPiso)) {
                   alert("Información no válida. Por favor intentelo más tarde!")
@@ -258,10 +258,10 @@ const GestionPiso = {
                         const msgOK = document.getElementById(`msgOK_${codeAccion}`)
                         const msgKO = document.getElementById(`msgKO_${codeAccion}`)
 
-<<<<<<< HEAD
+
                         if (res.status === 1) {
                               msgOK.innerHTML = `${res.msg || 'Operación correcta'}<br /> Código: ${codeF}`
-=======
+
                         if (res.status === 1 || res.data) {
                               // 3. EXTRAEMOS EL PIN REAL MATEMÁTICO DESDE EL BACKEND
                               let pinWeLock = codeF;
@@ -274,7 +274,7 @@ const GestionPiso = {
                               // 4. PINTAMOS EL PIN GIGANTE EN VERDE
                               msgOK.innerHTML = `¡Operación Exitosa!<br /><br /><span style="font-size: 16px;">PIN WeLock Offline:</span><br /><strong style="font-size: 36px; color: #28a745; letter-spacing: 2px;">${pinWeLock}</strong>`;
                               
->>>>>>> 58db678d97a54c17d3a20494fc4f0125c9d151ec
+
                               Util.showAlert(`alertOK_${codeAccion}`)
                               Util.hideAlert(`alertKO_${codeAccion}`)
                               GestionPiso.clearForm()
@@ -285,10 +285,10 @@ const GestionPiso = {
                         }
                   })
                   .catch((err) => {
-<<<<<<< HEAD
-=======
+
+
                         console.error(err);
->>>>>>> 58db678d97a54c17d3a20494fc4f0125c9d151ec
+
                         const codeAccion = Util.getCodeAlert(actionExec)
                         const msgKO = document.getElementById(`msgKO_${codeAccion}`)
                         msgKO.innerHTML = 'Error de red creando el código'
@@ -303,27 +303,27 @@ const GestionPiso = {
       validateFieldsNewCode: (dayF, codeF, elTypeCode) => {
             let result = true
             dayF = (dayF || '').toString().trim()
-<<<<<<< HEAD
+
             codeF = (codeF || '').toString().trim()
 
             if (!(codeF.match(/^[0-9]{6}$/) && dayF.match(/^[1-9][0-9]{0,2}$/))) result = false
 
             // Si el campo existe valida
-=======
+
 
             // Solo verificamos que haya puesto días de vigencia
             if (!(dayF.match(/^[1-9][0-9]{0,2}$/))) result = false
 
->>>>>>> 58db678d97a54c17d3a20494fc4f0125c9d151ec
+
             if (elTypeCode) {
                   if (!((elTypeCode.value || '').trim().match(/\d+$/))) result = false
             }
 
-<<<<<<< HEAD
+
             if (!result) Util.showErrorValidate(actionExec, 'Cambiar código')
-=======
+
             if (!result) Util.showErrorValidate(actionExec, 'Cambiar código (Días inválidos)')
->>>>>>> 58db678d97a54c17d3a20494fc4f0125c9d151ec
+
 
             return result
       },

@@ -269,22 +269,7 @@
                                     id="btn_obtener_codigo" onclick="GestionPiso.generateCode();">Generar
                                     código</button>
                         </div>-->
-                        {{#if showFieldTypeCode }}
-                        {{!-- <div class="mb-3"> --}}
-                              <label for="typecode" class="form-label fw-bold">Tipo Código <span
-                                          class="text-danger">*</span></label>
-                              <div class="mb-3">
-                                    <select id="typecode" class="form-select form-select-lg mb-3"
-                                          aria-label="Default select type code">
-                                          <option value="NA">Seleccionar</option>
-                                          {{#each lTypesCodesDB}}
-                                          <option value="{{id}}">{{nombre}}</option>
-                                          {{/each}}
-                                    </select>
-                              </div>
-                              {{!--
-                        </div> --}}
-                        {{/if}}
+                        
                         <div class="mb-3">
                               <label for="vigencia" class="form-label font-weight-bold fw-bold">Vigencia en días <span
                                           class="text-danger">*</span></label>

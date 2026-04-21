@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Fichaje - My City Home</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 50px;
+            text-align: center;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .logo {
+            width: 250px;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: #1387C9;
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.2rem;
+            margin-bottom: 40px;
+        }
+
+        #qrcode {
+            background: white;
+            padding: 20px;
+            border-radius: 20px;
+            display: inline-block;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .instructions {
+            background: #f0f8ff;
+            border-left: 4px solid #1387C9;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+            text-align: left;
+        }
+
+        .instructions h3 {
+            color: #1387C9;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .instructions ol {
+            color: #333;
+            line-height: 1.8;
+            padding-left: 20px;
+        }
+
+        .instructions li {
+            margin-bottom: 10px;
+        }
+
+        .timer {
+            color: #F18420;
+            font-size: 0.9rem;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 8px 20px;
+            background: #4CAF50;
+            color: white;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        #qrcode {
+            animation: pulse 3s infinite;
+        }
+
+        @media screen and (max-width: 600px) {
+            .container {
+                padding: 30px 20px;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .subtitle {
+                font-size: 1rem;
+            }
+
+            .logo {
+                width: 180px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="https://i.ibb.co/FxhfMzh/Logo-4.png" class="logo" alt="MyCityHome" />
+
+        <h1>Fichaje de Oficina</h1>
+        <p class="subtitle">Escanea el código QR para registrar tu entrada/salida</p>
+
+        <div id="qrcode"></div>
+
+        <div class="status">● Sistema Activo</div>
+        <p class="timer">El código se regenera cada <span id="seconds">30</span> segundos</p>
+
+        <div class="instructions">
+            <h3>📱 Instrucciones</h3>
+            <ol>
+                <li>Abre la cámara de tu móvil o una app de QR</li>
+                <li>Escanea el código QR mostrado arriba</li>
+                <li>Ingresa tu usuario y contraseña</li>
+                <li>El sistema registrará automáticamente tu fichaje</li>
+            </ol>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script>
+        let qrCodeInstance = null;
+        let countdown = 30; // Regenerar cada 30 segundos
+        let countdownInterval = null;
+
+        // Función para encriptar el token
+        function encryptToken(message) {
+            const _keyEncript = "iot$@2024rbjX)";
+            return CryptoJS.AES.encrypt(message, _keyEncript).toString();
+        }
+
+        // Función para generar el QR
+        function generateQR() {
+            // Limpiar QR anterior
+            document.getElementById('qrcode').innerHTML = '';
+
+            // Crear token con el mensaje requerido
+            const tokenMessage = 'iotmch2024atic$@_' + Date.now();
+            const encryptedToken = encryptToken(tokenMessage);
+            const fichajeURL = window.location.origin + '/fichar?qr=' + encodeURIComponent(encryptedToken);
+
+            // Generar nuevo QR
+            qrCodeInstance = new QRCode(document.getElementById("qrcode"), {
+                text: fichajeURL,
+                width: 300,
+                height: 300,
+                colorDark: "#1387C9",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+
+            // Reiniciar countdown
+            countdown = 30;
+        }
+
+        // Función para actualizar el contador
+        function updateCountdown() {
+            countdown--;
+            document.getElementById('seconds').textContent = countdown;
+
+            if (countdown <= 0) {
+                generateQR();
+            }
+        }
+
+        // Inicializar
+        generateQR();
+        countdownInterval = setInterval(updateCountdown, 1000);
+    </script>
+</body>
+</html>

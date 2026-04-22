@@ -47,10 +47,7 @@ const UserState = (props: JSONObject) => {
 
     const [getCurrentRol, changeCurrentRol] = useLocalState<rolenum>(initialRolState, localRolKey)
 
-    const OPEN_ACCESS = true
-
     const isRoleAllowed = (router: NextRouter, callback: () => void) => {
-        if (OPEN_ACCESS) return callback()
         const basePath = '/'+router.pathname.split('/')[1]
         if (!PATH[basePath]) return callback()
 
@@ -67,10 +64,6 @@ const UserState = (props: JSONObject) => {
     const useAllowedEffect = (router: NextRouter, callback: () => void) => {
         useEffect(() => {
             (async () => {
-                if (OPEN_ACCESS) {
-                    callback()
-                    return
-                }
                 const response = await userService.getProfile((error) => {
                     console.error(error)
                     router.push('/login')

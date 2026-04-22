@@ -27,14 +27,13 @@ const Login = () => {
     if (!Response) return
 
         const _rolMain = Response.data?.roles.find(el => el.ismain === true)
-        const fallbackRol = _rolMain?.id || 'superadmin'
 
-        if (Response) {
+        if (Response && _rolMain) {
             await setUserData(Response.data)
-            await changeCurrentRol(fallbackRol)
+            await changeCurrentRol(_rolMain?.id)
 
+            router.push('/' + _rolMain?.id)
             localStorage.setItem('idlogin', Response.data.id.toString())
-            router.push('/' + fallbackRol)
         }
     }
 
@@ -77,13 +76,8 @@ const Login = () => {
                                     />
                                 </div>
                                 
-                                <button type="submit" className="login-arrow-btn mt-4 transform hover:scale-110 transition-transform duration-200">
-                                <img
-                                    className='c-btnLogin'
-                                    src="/img/ico/icoArrow.svg"
-                                    style={{width: 120, height: 120}}
-                                    alt="Login"
-                                />
+                                <button type="submit" className="border-0 mt-4 c-bg-0 transform hover:scale-110 transition-transform duration-200">
+                                    <img src="/img/ico/HomeLogin.svg" alt="Entrar" style={{ width: 80, height: 80 }} />
                                 </button>
 
                                 {isError && (

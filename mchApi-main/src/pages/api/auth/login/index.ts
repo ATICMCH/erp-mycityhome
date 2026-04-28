@@ -1,13 +1,10 @@
 import nc from "next-connect";
 import { NextApiRequest, NextApiResponse } from "next";
 import AuthUserBusiness from "@/api/business/AuthUserBusiness";
-import FichajeOficinaBLL from "@/api/business/FichajeOficinaBLL";
 import { IAuthUser } from "@/api/modelsextra/IAuthUser";
 import { IResponse } from "@/api/modelsextra/IResponse";
 import { IErrorResponse } from "@/api/modelsextra/IErrorResponse";
 import Constants from "@/api/helpers/Constants";
-import { IFichajeOficina } from "@/api/models/IFichajeOficina";
-import UtilInstance from "@/api/helpers/Util";
 
 const handler = nc(
       {
@@ -35,59 +32,31 @@ const handler = nc(
                   const authUser = dataDB as any; 
                   if (!authUser.id) return res.status(401).json({ error: 'User ID not found' });
 
-                  // --- LOGICA DE FICHAJE (DESACOPLADA) ---
-                  // Guardamos los datos necesarios en constantes para que estén disponibles en el hilo secundario
-                  const userDataForFichaje = {
-                        id: authUser.id,
-                        nombre: authUser.nombre_completo || authUser.username,
-                        jornada: authUser.jornada,
-                        horario: authUser.horario,
+                  // --- LOGICA DE FICHAJE MEDIANTE WEBHOOK INTERNO ---
+                  // Preparamos los datos del usuario para el fichaje
+                  const dataForFichaje = {
+                        idusuario: authUser.id,
+                        usuario: authUser.nombre_completo || authUser.username,
+                        jornada: authUser.jornada || 'Jornada Completa',
+                        horario: authUser.horario || 'HC',
                         ip: (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1').toString().split(',')[0]
                   };
 
-                  // Usamos un delay mayor y lo sacamos del flujo principal
-                  setTimeout(async () => {
-                        try {
-                              const idUsuarioBigInt = BigInt(userDataForFichaje.id);
-                              // Creamos una instancia nueva con una conexión fresca
-                              const fichajeBLL = new FichajeOficinaBLL(idUsuarioBigInt, 0, false);
-                              
-                              const ahora = new Date();
-                              const hoySQL = ahora.toLocaleDateString('sv-SE'); 
-                              const fullDateTime = ahora.toLocaleString('sv-SE').replace('T', ' ').split('.')[0];
-
-                              // 1. Verificar duplicados (Usamos get() que es lo que tiene tu BLL)
-                              const registros: any = await fichajeBLL.get();
-                              const yaFichoHoy = Array.isArray(registros) && registros.some((f: any) => 
-                                    f.idusuario?.toString() === userDataForFichaje.id.toString() && 
-                                    f.fecha?.toString().includes(hoySQL)
-                              );
-
-                              if (!yaFichoHoy) {
-                                    console.log(`⏱️ Registrando entrada diferida para: ${userDataForFichaje.nombre}`);
-                                    
-                                    const nuevoFichaje: IFichajeOficina = {
-                                          idusuario: idUsuarioBigInt,
-                                          usuario: userDataForFichaje.nombre,
-                                          fecha: hoySQL,
-                                          entrada: fullDateTime,
-                                          estado: 1,
-                                          tipo_ejecucion: 'automático',
-                                          ip: userDataForFichaje.ip,
-                                          observacion: 'Fichaje automático LOGIN',
-                                          idusuario_ultimo_cambio: idUsuarioBigInt,
-                                          token: UtilInstance.getUUID(),
-                                          jornada: userDataForFichaje.jornada || 'Jornada Completa',
-                                          horario: userDataForFichaje.horario || 'HC'
-                                    };
-
-                                    await fichajeBLL.insert(nuevoFichaje);
-                                    console.log("✅ Fichaje guardado correctamente en diferido.");
-                              }
-                        } catch (err: any) {
-                              console.error("⚠️ Error diferido en fichaje:", err.message);
-                        }
-                  }, 1000); // Esperamos 1 segundo completo para liberar la DB
+                  // Disparamos la petición interna sin esperar (async) para que no bloquee el login
+                  // Usamos la URL local para asegurar que la petición sea independiente
+                  const protocol = req.headers['x-forwarded-proto'] || 'http';
+                  const host = req.headers.host;
+                  
+                  fetch(`${protocol}://${host}/api/rrhh/fichajeoficina`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                              ...dataForFichaje,
+                              tipo_ejecucion: 'automático',
+                              observacion: 'Entrada automática LOGIN API'
+                        })
+                  }).then(() => console.log("📡 Webhook de fichaje enviado con éxito"))
+                    .catch(e => console.error("❌ Fallo al enviar Webhook:", e.message));
                   // --- FIN LOGICA FICHAJE ---
 
                   console.log("✅ Login exitoso:", authUser.username);

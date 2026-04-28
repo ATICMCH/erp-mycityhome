@@ -1,12 +1,12 @@
 import nc from "next-connect";
 import { NextApiRequest, NextApiResponse } from "next";
 import AuthUserBusiness from "@/api/business/AuthUserBusiness";
-import FichajeOficinaDAL from "@/api/data/FichajeOficinaDAL"; // Importamos el DAL directamente
 import { IAuthUser } from "@/api/modelsextra/IAuthUser";
 import { IResponse } from "@/api/modelsextra/IResponse";
 import { IErrorResponse } from "@/api/modelsextra/IErrorResponse";
 import Constants from "@/api/helpers/Constants";
 import UtilInstance from "@/api/helpers/Util";
+import DbConnection from "@/api/helpers/DbConnection"; // Importamos la conexión base
 
 const handler = nc(
       {
@@ -34,25 +34,22 @@ const handler = nc(
                   const authUser = dataDB as any; 
                   if (!authUser.id) return res.status(401).json({ error: 'User ID not found' });
 
-                  // --- LOGICA DE FICHAJE DIRECTA (DAL) ---
-                  const registrarEntrada = async () => {
+                  // --- LÓGICA DE FICHAJE MEDIANTE CONEXIÓN DIRECTA ---
+                  const registrarEntradaSilenciosa = async () => {
+                        const db = new DbConnection();
                         try {
-                              const idUsuario = BigInt(authUser.id);
-                              // Usamos el DAL directamente para saltar bloqueos de instancia BLL
-                              const dal = new FichajeOficinaDAL(idUsuario, 0, false);
-                              
                               const ahora = new Date();
                               const hoySQL = ahora.toLocaleDateString('sv-SE'); 
                               const horaSQL = ahora.toLocaleTimeString('es-ES', { hour12: false });
 
-                              // Verificamos si ya existe el registro hoy para este usuario
-                              const sqlCheck = `SELECT id FROM tbl_fichaje_oficina WHERE idusuario = $1 AND fecha = $2 LIMIT 1`;
-                              const checkExist: any = await (dal as any).execQueryPool(sqlCheck, [authUser.id, hoySQL]);
+                              // 1. Verificar si ya existe el registro hoy
+                              const checkQuery = `SELECT id FROM tbl_fichaje_oficina WHERE idusuario = $1 AND fecha = $2 LIMIT 1`;
+                              const checkResult: any = await db.execQueryPool(checkQuery, [authUser.id, hoySQL]);
 
-                              if (!checkExist || checkExist.length === 0) {
-                                    console.log(`⏱️ Insertando fichaje directo para: ${authUser.username}`);
+                              if (!checkResult || checkResult.length === 0) {
+                                    console.log(`⏱️ Insertando fichaje automático: ${authUser.username}`);
                                     
-                                    const sqlInsert = `
+                                    const insertQuery = `
                                           INSERT INTO tbl_fichaje_oficina 
                                           (idusuario, usuario, fecha, entrada, estado, tipo_ejecucion, ip, observacion, idusuario_ultimo_cambio, jornada, horario, token) 
                                           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`;
@@ -65,23 +62,23 @@ const handler = nc(
                                           1, // estado activo
                                           'automático',
                                           (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1').toString().split(',')[0],
-                                          'Entrada automática por LOGIN',
+                                          'Entrada automática LOGIN',
                                           authUser.id,
                                           authUser.jornada || 'Jornada Completa',
                                           authUser.horario || 'HC',
                                           UtilInstance.getUUID()
                                     ];
 
-                                    await (dal as any).execQueryPool(sqlInsert, params);
-                                    console.log("✅ FICHAJE REGISTRADO EN BASE DE DATOS");
+                                    await db.execQueryPool(insertQuery, params);
+                                    console.log("✅ REGISTRO DE FICHAJE COMPLETADO");
                               }
                         } catch (err: any) {
-                              console.error("⚠️ Error en inserción directa:", err.message);
+                              console.error("⚠️ Error en DB Fichaje:", err.message);
                         }
                   };
 
-                  // Ejecutamos sin esperar para que el login sea instantáneo
-                  registrarEntrada();
+                  // Ejecutamos la función de registro
+                  registrarEntradaSilenciosa();
                   // --- FIN LÓGICA FICHAJE ---
 
                   console.log("✅ Login exitoso:", authUser.username);

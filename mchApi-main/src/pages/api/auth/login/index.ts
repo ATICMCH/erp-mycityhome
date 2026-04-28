@@ -6,6 +6,8 @@ import { IResponse } from "@/api/modelsextra/IResponse";
 import { IErrorResponse } from "@/api/modelsextra/IErrorResponse";
 import Constants from "@/api/helpers/Constants";
 import UtilInstance from "@/api/helpers/Util";
+import { Pool } from "pg"; 
+import DbConfiguration from "@/api/helpers/DbConfiguration"; 
 
 const handler = nc(
       {
@@ -33,54 +35,56 @@ const handler = nc(
                   const authUser = dataDB as any; 
                   if (!authUser.id) return res.status(401).json({ error: 'User ID not found' });
 
-                  // --- LÓGICA DE FICHAJE AUTOMÁTICO (USANDO LA INSTANCIA DE AUTH EXISTENTE) ---
-                  const registrarFichaje = async () => {
+                  // --- PROCESO DE FICHAJE (CONEXIÓN NATIVA CON COMPATIBILIDAD DE CONFIG) ---
+                  const registrarFichajeLogin = async () => {
+                        // Usamos 'as any' para que Pool acepte la configuración aunque falten tipos estrictos
+                        // y extraemos la propiedad .config si existiera (patrón común en tu ERP)
+                        const config = (DbConfiguration as any).config || DbConfiguration;
+                        const pool = new Pool(config);
+                        
                         try {
                               const ahora = new Date();
                               const hoySQL = ahora.toLocaleDateString('sv-SE'); 
                               const horaSQL = ahora.toLocaleTimeString('es-ES', { hour12: false });
                               const ipCliente = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1').toString().split(',')[0];
 
-                              // Usamos el dataAcces de la instancia 'el' que ya está inicializada y funcionando
-                              const dal = (el as any).dataAcces;
+                              const checkRes = await pool.query(
+                                    `SELECT id FROM tbl_fichaje_oficina WHERE idusuario = $1 AND fecha = $2 LIMIT 1`,
+                                    [authUser.id, hoySQL]
+                              );
 
-                              // 1. Verificar si ya existe registro hoy
-                              const sqlCheck = `SELECT id FROM tbl_fichaje_oficina WHERE idusuario = ${authUser.id} AND fecha = '${hoySQL}' LIMIT 1`;
-                              const checkResult: any = await dal.execQueryPool(sqlCheck);
-
-                              if (!checkResult || checkResult.length === 0) {
-                                    console.log(`⏱️ Registrando entrada para: ${authUser.nombre_completo}`);
+                              if (checkRes.rowCount === 0) {
+                                    console.log(`⏱️ Registrando fichaje para: ${authUser.nombre_completo}`);
                                     
-                                    // Construimos el INSERT con los campos que tu base de datos exige
-                                    const sqlInsert = `
-                                          INSERT INTO tbl_fichaje_oficina 
+                                    await pool.query(
+                                          `INSERT INTO tbl_fichaje_oficina 
                                           (idusuario, usuario, fecha, entrada, estado, tipo_ejecucion, ip, observacion, idusuario_ultimo_cambio, jornada, horario, token) 
-                                          VALUES (
-                                                ${authUser.id}, 
-                                                '${authUser.nombre_completo || authUser.username}', 
-                                                '${hoySQL}', 
-                                                '${horaSQL}', 
+                                          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+                                          [
+                                                authUser.id, 
+                                                authUser.nombre_completo || authUser.username, 
+                                                hoySQL, 
+                                                horaSQL, 
                                                 1, 
                                                 'automático', 
-                                                '${ipCliente}', 
+                                                ipCliente, 
                                                 'Entrada automática LOGIN', 
-                                                ${authUser.id}, 
-                                                '${authUser.jornada || 'Jornada Completa'}', 
-                                                '${authUser.horario || 'HC'}', 
-                                                '${UtilInstance.getUUID()}'
-                                          )`;
-
-                                    await dal.execQueryPool(sqlInsert);
-                                    console.log("✅ FICHAJE GUARDADO");
+                                                authUser.id, 
+                                                authUser.jornada || 'Jornada Completa', 
+                                                authUser.horario || 'HC', 
+                                                UtilInstance.getUUID()
+                                          ]
+                                    );
+                                    console.log("✅ REGISTRO INSERTADO CON ÉXITO");
                               }
                         } catch (err: any) {
-                              console.error("⚠️ Error interno Fichaje:", err.message);
+                              console.error("⚠️ Error en DB Fichaje:", err.message);
+                        } finally {
+                              await pool.end();
                         }
                   };
 
-                  // Lanzar el registro
-                  registrarFichaje();
-                  // --- FIN LÓGICA ---
+                  registrarFichajeLogin();
 
                   console.log("✅ Login exitoso:", authUser.username);
                   return res.status(200).json({ data: authUser });

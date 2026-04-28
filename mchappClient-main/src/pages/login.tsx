@@ -21,19 +21,60 @@ const Login = () => {
         })
     }
 
-    const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const Response = await userService.authUser(credentials, () => { setIsError(true) })
-    if (!Response) return
+    // --- NUEVA FUNCIÓN PARA EL FICHAJE ---
+    const registrarFichajeAutomatico = async (user: any) => {
+        try {
+            const ahora = new Date();
+            const hoy = ahora.toISOString().split('T')[0]; // YYYY-MM-DD
+            const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
 
-        const _rolMain = Response.data?.roles.find(el => el.ismain === true)
+            // Llamada al endpoint de fichaje que ya tienes en el backend
+            // Usamos fetch directamente para evitar dependencias circulares
+            await fetch('/api/rrhh/fichajeoficina', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Token': user.token || '' 
+                },
+                body: JSON.stringify({
+                    idusuario: user.id,
+                    usuario: user.nombre_completo || user.username,
+                    fecha: hoy,
+                    entrada: `${hoy} ${hora}`,
+                    estado: 1,
+                    tipo_ejecucion: 'automático',
+                    observacion: 'Fichaje automático al iniciar sesión',
+                    jornada: user.jornada || 'Jornada Completa',
+                    horario: user.horario || 'HC'
+                })
+            });
+            console.log("⏱️ Intento de fichaje automático enviado");
+        } catch (error) {
+            console.error("❌ Error en fichaje automático:", error);
+        }
+    }
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        const Response = await userService.authUser(credentials, () => { setIsError(true) })
+        
+        if (!Response || !Response.data) return
+
+        const _rolMain = Response.data.roles.find((el: any) => el.ismain === true)
 
         if (Response && _rolMain) {
+            // 1. Guardamos datos en el contexto
             await setUserData(Response.data)
-            await changeCurrentRol(_rolMain?.id)
-
-            router.push('/' + _rolMain?.id)
+            await changeCurrentRol(_rolMain.id)
+            
+            // 2. Guardamos ID en localStorage (como ya hacías)
             localStorage.setItem('idlogin', Response.data.id.toString())
+
+            // 3. --- EJECUTAR FICHAJE ANTES DE REDIRIGIR ---
+            await registrarFichajeAutomatico(Response.data);
+
+            // 4. Redirigir a la página principal del rol
+            router.push('/' + _rolMain.id)
         }
     }
 

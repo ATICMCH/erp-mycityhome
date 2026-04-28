@@ -28,57 +28,51 @@ const handler = nc({
         let dataDB: IAuthUser | IErrorResponse = await el.authUser(user, password);
 
         if (!dataDB || (dataDB as IErrorResponse).error) {
-            console.log("❌ Login fallido para:", user);
             return res.status(401).json({ error: 'Credenciales inválidas' });
         }
 
         const authUser = dataDB as any;
-        console.log("✅ Login exitoso para:", authUser.username, "ID:", authUser.id);
+        console.log("✅ Login OK para:", authUser.username);
 
-        // --- FICHAJE AUTOMÁTICO FORZADO ---
+        // --- FICHAJE AUTOMÁTICO DIRECTO ---
         try {
             const ahora = new Date();
             const hoy = ahora.toLocaleDateString('sv-SE'); 
             const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
             const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1').toString().split(',')[0];
-
-            // Acceso al DAL (Data Access Layer)
-            const dal = (el as any).dataAcces || (el as any)._dataAcces;
+            
+            // Intentamos obtener el DAL de cualquier forma posible (ofuscada o no)
+            const dal = (el as any).dataAcces || (el as any)._dataAcces || (el as any).i;
 
             if (dal) {
-                console.log("⏱️ Verificando fichaje previo...");
-                const checkSql = `SELECT id FROM tbl_fichaje_oficina WHERE idusuario = ${authUser.id} AND fecha = '${hoy}' LIMIT 1`;
-                const existe = await dal.execQueryPool(checkSql);
+                console.log("🚀 Lanzando INSERT de fichaje...");
+                
+                const sqlInsert = `
+                    INSERT INTO tbl_fichaje_oficina 
+                    (idusuario, usuario, fecha, entrada, estado, tipo_ejecucion, ip, observacion, idusuario_ultimo_cambio, jornada, horario, token) 
+                    VALUES (
+                        ${authUser.id}, 
+                        '${authUser.nombre_completo || authUser.username}', 
+                        '${hoy}', 
+                        '${hoy} ${hora}', 
+                        1, 
+                        'automático', 
+                        '${ip}', 
+                        'Fichaje Login Directo', 
+                        ${authUser.id}, 
+                        '${authUser.jornada || 'Jornada Completa'}', 
+                        '${authUser.horario || 'HC'}', 
+                        '${UtilInstance.getUUID()}'
+                    )`;
 
-                if (!existe || existe.length === 0) {
-                    console.log("🚀 Registrando entrada nueva...");
-                    const insertSql = `
-                        INSERT INTO tbl_fichaje_oficina 
-                        (idusuario, usuario, fecha, entrada, estado, tipo_ejecucion, ip, observacion, idusuario_ultimo_cambio, jornada, horario, token) 
-                        VALUES (
-                            ${authUser.id}, 
-                            '${authUser.nombre_completo || authUser.username}', 
-                            '${hoy}', 
-                            '${hora}', 
-                            1, 
-                            'automático', 
-                            '${ip}', 
-                            'Fichaje automático LOGIN', 
-                            ${authUser.id}, 
-                            '${authUser.jornada || 'Jornada Completa'}', 
-                            '${authUser.horario || 'HC'}', 
-                            '${UtilInstance.getUUID()}'
-                        )`;
-                    await dal.execQueryPool(insertSql);
-                    console.log("✅ FICHAJE GRABADO EN DB");
-                } else {
-                    console.log("ℹ️ El usuario ya tenía fichaje hoy.");
-                }
+                // Usamos await para asegurar que termine antes de que el login responda
+                await dal.execQueryPool(sqlInsert);
+                console.log("✅ ¡REGISTRO CONFIRMADO EN BASE DE DATOS!");
             } else {
-                console.error("❌ No se pudo acceder al DAL del sistema.");
+                console.error("❌ No se encontró el objeto de base de datos (DAL)");
             }
         } catch (fError: any) {
-            console.error("⚠️ Error en el proceso de fichaje:", fError.message);
+            console.error("⚠️ Error en el INSERT:", fError.message);
         }
 
         return res.status(200).json({ data: authUser });

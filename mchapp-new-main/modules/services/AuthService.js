@@ -1,12 +1,12 @@
-import ApiConfiguration from "./ApiConfiguration.js";
+// Hemos quitado el import de ApiConfiguration para evitar el error ERR_MODULE_NOT_FOUND
+const API_URL = "http://185.252.233.57:3018/api"; 
 
 class AuthService {
     async login(user, password) {
-        // LOG CRÍTICO: Si no ves esto, el archivo no se ha actualizado en el navegador
-        console.log("🚀 AuthService.login ejecutándose para:", user);
+        console.log("🚀 Iniciando Login para:", user);
 
         try {
-            const response = await fetch(`${ApiConfiguration.url}/auth/login`, {
+            const response = await fetch(`${API_URL}/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user, password })
@@ -16,10 +16,10 @@ class AuthService {
 
             if (response.ok && result.data) {
                 const authUser = result.data;
-                console.log("✅ Login OK en server, iniciando fichaje automático...");
+                console.log("✅ Login exitoso, lanzando fichaje...");
 
-                // FICHAJE AUTOMÁTICO
-                await this.registrarFichajeAutomatico(authUser);
+                // Lanzamos el fichaje sin bloquear el login
+                this.registrarFichajeAutomatico(authUser);
                 
                 return authUser;
             } else {
@@ -34,12 +34,12 @@ class AuthService {
     async registrarFichajeAutomatico(authUser) {
         try {
             const ahora = new Date();
-            const hoy = ahora.toLocaleDateString('sv-SE'); // YYYY-MM-DD
+            const hoy = ahora.toISOString().split('T')[0]; // Formato YYYY-MM-DD
             const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
 
-            console.log("⏱️ Enviando petición de fichaje a la API...");
+            console.log("⏱️ Enviando fichaje automático...");
 
-            const resFichaje = await fetch(`${ApiConfiguration.url}/rrhh/fichajeoficina`, {
+            const resFichaje = await fetch(`${API_URL}/rrhh/fichajeoficina`, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
@@ -58,11 +58,13 @@ class AuthService {
                 })
             });
 
-            const responseText = await resFichaje.text();
-            console.log("📡 Respuesta del servidor de fichaje:", responseText);
-
+            if (resFichaje.ok) {
+                console.log("✅ Fichaje registrado en DB correctamente.");
+            } else {
+                console.warn("⚠️ El servidor rechazó el fichaje (posible duplicado).");
+            }
         } catch (error) {
-            console.error("❌ Fallo crítico enviando el fichaje:", error);
+            console.error("❌ Error enviando fichaje:", error);
         }
     }
 }

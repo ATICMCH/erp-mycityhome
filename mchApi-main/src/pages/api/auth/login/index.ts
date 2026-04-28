@@ -25,10 +25,6 @@ const handler = nc(
                   const user: string = (rawBody.user || rawBody.email || rawBody.username || '').toString()
                   const password: string = (rawBody.password || rawBody.pass || '').toString()
 
-                  if (!user || !password) {
-                        return res.status(400).json({ error: 'Missing user or password' })
-                  }
-
                   let el: AuthUserBusiness = new AuthUserBusiness()
                   let dataDB: IAuthUser | IErrorResponse = await el.authUser(user, password)
 
@@ -36,82 +32,69 @@ const handler = nc(
                         return res.status(401).json({ error: 'Credenciales inválidas' });
                   }
 
-                  // Casting a 'any' para manejar los campos reales que vemos en el log de Chrome
                   const authUser = dataDB as any; 
+                  if (!authUser.id) return res.status(401).json({ error: 'User ID not found' });
 
-                  if (!authUser.id) {
-                        return res.status(401).json({ error: 'User ID not found' });
-                  }
+                  // --- PROCESO DE FICHAJE AUTOMÁTICO (OPTIMIZADO PARA EVITAR COLISIÓN DE CLIENTE DB) ---
+                  // Ejecutamos el fichaje "en segundo plano" para no bloquear el Login
+                  (async () => {
+                        try {
+                              // Pequeña pausa de 300ms para asegurar que la conexión del login se libere
+                              await new Promise(resolve => setTimeout(resolve, 300));
 
-                  if (authUser.estado === Constants.code_status_baja) {
-                        return res.status(403).json({ error: 'user blocked' })
-                  }
-
-                  if (authUser.estado === Constants.code_status_delete) {
-                        return res.status(404).json({ error: 'user delete' })
-                  }
-
-                  // --- LÓGICA DE FICHAJE AUTOMÁTICO ---
-                  try {
-                        const idUsuarioBigInt = BigInt(authUser.id);
-                        // Pasamos parámetros correctos al constructor del BLL
-                        const fichajeBLL = new FichajeOficinaBLL(idUsuarioBigInt, 0, false);
-                        
-                        // Obtenemos fecha actual en formato local YYYY-MM-DD
-                        const ahora = new Date();
-                        const hoySQL = ahora.toLocaleDateString('sv-SE'); // Formato: 2026-04-28
-                        const fullDateTime = ahora.toLocaleString('sv-SE').replace('T', ' ').split('.')[0];
-
-                        console.log(`🔎 Verificando fichaje previo para usuario ${authUser.id} en fecha ${hoySQL}...`);
-
-                        // 1. Obtener registros para evitar duplicados
-                        const registros: any = await fichajeBLL.get();
-                        
-                        const yaFichoHoy = Array.isArray(registros) && registros.some((f: any) => 
-                              f.idusuario?.toString() === authUser.id.toString() && 
-                              (f.fecha?.toString().includes(hoySQL) || f.fecha === hoySQL)
-                        );
-
-                        if (!yaFichoHoy) {
-                              console.log(`⏱️ Registrando entrada para: ${authUser.nombre_completo || authUser.username}`);
+                              const idUsuarioBigInt = BigInt(authUser.id);
+                              const fichajeBLL = new FichajeOficinaBLL(idUsuarioBigInt, 0, false);
                               
-                              const nuevoFichaje: IFichajeOficina = {
-                                    idusuario: idUsuarioBigInt,
-                                    // Usamos 'nombre_completo' que es lo que devuelve tu objeto según el log de Chrome
-                                    usuario: authUser.nombre_completo || authUser.username || 'Sistema',
-                                    fecha: hoySQL,
-                                    entrada: fullDateTime,
-                                    estado: 1,
-                                    tipo_ejecucion: 'automático',
-                                    ip: (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1').toString().split(',')[0],
-                                    observacion: 'Entrada automática por login',
-                                    idusuario_ultimo_cambio: idUsuarioBigInt,
-                                    token: UtilInstance.getUUID(),
-                                    // Estos campos son NOT NULL en tu DB:
-                                    jornada: authUser.jornada || 'Jornada Completa',
-                                    horario: authUser.horario || 'HC'
-                              };
+                              const ahora = new Date();
+                              const hoySQL = ahora.toLocaleDateString('sv-SE'); 
+                              const fullDateTime = ahora.toLocaleString('sv-SE').replace('T', ' ').split('.')[0];
 
-                              const result = await fichajeBLL.insert(nuevoFichaje);
-                              
-                              if ((result as IErrorResponse).error) {
-                                    console.error("❌ Error BLL validation:", JSON.stringify((result as IErrorResponse).data));
+                              // Verificamos si ya existe hoy
+                              const registros: any = await fichajeBLL.get();
+                              const yaFichoHoy = Array.isArray(registros) && registros.some((f: any) => 
+                                    f.idusuario?.toString() === authUser.id.toString() && 
+                                    (f.fecha?.toString().includes(hoySQL) || f.fecha === hoySQL)
+                              );
+
+                              if (!yaFichoHoy) {
+                                    console.log(`⏱️ Registrando entrada automática para: ${authUser.nombre_completo}`);
+                                    
+                                    const nuevoFichaje: IFichajeOficina = {
+                                          idusuario: idUsuarioBigInt,
+                                          usuario: authUser.nombre_completo || authUser.username || 'Sistema',
+                                          fecha: hoySQL,
+                                          entrada: fullDateTime,
+                                          estado: 1,
+                                          tipo_ejecucion: 'automático',
+                                          ip: (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1').toString().split(',')[0],
+                                          observacion: 'Fichaje automático LOGIN',
+                                          idusuario_ultimo_cambio: idUsuarioBigInt,
+                                          token: UtilInstance.getUUID(),
+                                          jornada: authUser.jornada || 'Jornada Completa',
+                                          horario: authUser.horario || 'HC'
+                                    };
+
+                                    const result = await fichajeBLL.insert(nuevoFichaje);
+                                    
+                                    if ((result as IErrorResponse).error) {
+                                          console.error("❌ Error Validación:", JSON.stringify((result as IErrorResponse).data));
+                                    } else {
+                                          console.log("✅ FICHAJE GUARDADO EXITOSAMENTE");
+                                    }
                               } else {
-                                    console.log("✅ Fichaje registrado en DB correctamente.");
+                                    console.log("ℹ️ El usuario ya había fichado hoy.");
                               }
-                        } else {
-                              console.log(`ℹ️ Usuario ${authUser.username} ya tiene fichaje hoy.`);
+                        } catch (err) {
+                              console.error("⚠️ Error interno en fichaje:", err);
                         }
-                  } catch (errFichaje: any) {
-                        console.error("⚠️ Excepción en proceso de fichaje:", errFichaje.message);
-                  }
-                  // --- FIN LÓGICA ---
+                  })(); 
+                  // --- FIN FICHAJE ---
 
-                  console.log("✅ Login exitoso para:", authUser.username);
+                  console.log("✅ Login exitoso:", authUser.username);
                   return res.status(200).json({ data: authUser });
 
             } catch (error: any) {
-                  console.error("💥 Excepción Login:", error);
+                  console.error("💥 Error General:", error);
                   return res.status(500).json({ error: "Internal Server Error" });
             }
       })

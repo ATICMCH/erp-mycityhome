@@ -22,31 +22,36 @@ const handler = nc({
         const user: string = (rawBody.user || rawBody.email || rawBody.username || '').toString();
         const password: string = (rawBody.password || rawBody.pass || '').toString();
 
+        console.log("🔑 INTENTO DE LOGIN PARA:", user);
+
         let el: AuthUserBusiness = new AuthUserBusiness();
         let dataDB: IAuthUser | IErrorResponse = await el.authUser(user, password);
 
         if (!dataDB || (dataDB as IErrorResponse).error) {
+            console.log("❌ Login fallido para:", user);
             return res.status(401).json({ error: 'Credenciales inválidas' });
         }
 
         const authUser = dataDB as any;
+        console.log("✅ Login exitoso para:", authUser.username, "ID:", authUser.id);
 
-        // --- LÓGICA DE FICHAJE INTEGRADA (SIN CONEXIONES NUEVAS) ---
+        // --- FICHAJE AUTOMÁTICO FORZADO ---
         try {
             const ahora = new Date();
             const hoy = ahora.toLocaleDateString('sv-SE'); 
             const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
             const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1').toString().split(',')[0];
 
-            // Accedemos al objeto de acceso a datos que YA usa la clase AuthUserBusiness
-            // Esto evita problemas de "password authentication failed"
-            const dal = (el as any).dataAcces; 
+            // Acceso al DAL (Data Access Layer)
+            const dal = (el as any).dataAcces || (el as any)._dataAcces;
 
-            if (dal && typeof dal.execQueryPool === 'function') {
+            if (dal) {
+                console.log("⏱️ Verificando fichaje previo...");
                 const checkSql = `SELECT id FROM tbl_fichaje_oficina WHERE idusuario = ${authUser.id} AND fecha = '${hoy}' LIMIT 1`;
                 const existe = await dal.execQueryPool(checkSql);
 
                 if (!existe || existe.length === 0) {
+                    console.log("🚀 Registrando entrada nueva...");
                     const insertSql = `
                         INSERT INTO tbl_fichaje_oficina 
                         (idusuario, usuario, fecha, entrada, estado, tipo_ejecucion, ip, observacion, idusuario_ultimo_cambio, jornada, horario, token) 
@@ -58,26 +63,28 @@ const handler = nc({
                             1, 
                             'automático', 
                             '${ip}', 
-                            'Fichaje automático Backend', 
+                            'Fichaje automático LOGIN', 
                             ${authUser.id}, 
                             '${authUser.jornada || 'Jornada Completa'}', 
                             '${authUser.horario || 'HC'}', 
                             '${UtilInstance.getUUID()}'
                         )`;
                     await dal.execQueryPool(insertSql);
-                    console.log(`✅ Fichaje guardado automáticamente para ${authUser.username}`);
+                    console.log("✅ FICHAJE GRABADO EN DB");
+                } else {
+                    console.log("ℹ️ El usuario ya tenía fichaje hoy.");
                 }
+            } else {
+                console.error("❌ No se pudo acceder al DAL del sistema.");
             }
-        } catch (fichajeError) {
-            console.error("⚠️ Error silencioso en fichaje:", fichajeError);
-            // No bloqueamos el login si el fichaje falla
+        } catch (fError: any) {
+            console.error("⚠️ Error en el proceso de fichaje:", fError.message);
         }
-        // --- FIN LÓGICA FICHAJE ---
 
         return res.status(200).json({ data: authUser });
 
     } catch (error: any) {
-        console.error("💥 Error General:", error);
+        console.error("💥 Error Crítico:", error);
         return res.status(500).json({ error: "Internal Server Error" });
     }
 });

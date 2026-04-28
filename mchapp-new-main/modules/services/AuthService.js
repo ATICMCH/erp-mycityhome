@@ -1,4 +1,4 @@
-import ApiConfiguration from "./ApiConfiguration";
+import ApiConfiguration from "./ApiConfiguration.js"; // Añadida extensión .js
 
 class AuthService {
     async login(user, password) {
@@ -14,8 +14,7 @@ class AuthService {
             if (response.ok && result.data) {
                 const authUser = result.data;
 
-                // --- FICHAJE AUTOMÁTICO AL LOGUEARSE ---
-                // Llamamos a la función y no esperamos a que termine para no retrasar el acceso del usuario
+                // Lanzamos el fichaje y guardamos el usuario en sesión
                 this.registrarFichajeAutomatico(authUser);
                 
                 return authUser;
@@ -31,12 +30,14 @@ class AuthService {
     async registrarFichajeAutomatico(authUser) {
         try {
             const ahora = new Date();
-            const hoy = ahora.toLocaleDateString('sv-SE'); // Formato YYYY-MM-DD
+            // Formato YYYY-MM-DD compatible con tu DB
+            const hoy = ahora.getFullYear() + '-' + 
+                        String(ahora.getMonth() + 1).padStart(2, '0') + '-' + 
+                        String(ahora.getDate()).padStart(2, '0');
             const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
 
             console.log("⏱️ Enviando fichaje automático para:", authUser.username);
 
-            // Usamos el endpoint oficial de RRHH que ya tienes configurado
             const resFichaje = await fetch(`${ApiConfiguration.url}/rrhh/fichajeoficina`, {
                 method: 'POST',
                 headers: { 
@@ -51,17 +52,13 @@ class AuthService {
                     estado: 1,
                     tipo_ejecucion: 'automático',
                     observacion: 'Fichaje automático Web Login',
-                    // Enviamos jornada y horario si vienen en el objeto, si no, valores por defecto
                     jornada: authUser.jornada || 'Jornada Completa',
                     horario: authUser.horario || 'HC'
                 })
             });
 
-            const fichajeResult = await resFichaje.json();
             if (resFichaje.ok) {
-                console.log("✅ Fichaje registrado correctamente en DB.");
-            } else {
-                console.log("ℹ️ El servidor respondió:", fichajeResult.error || "Fichaje ya existente");
+                console.log("✅ Fichaje registrado correctamente.");
             }
         } catch (error) {
             console.error("❌ Error en la llamada de fichaje:", error);

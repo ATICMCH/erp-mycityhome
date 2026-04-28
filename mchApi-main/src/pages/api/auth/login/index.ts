@@ -37,7 +37,7 @@ const handler = nc({
         if (authUser.estado === Constants.code_status_baja) return res.status(403).json({ error: 'user blocked' });
         if (authUser.estado === Constants.code_status_delete) return res.status(404).json({ error: 'user delete' });
 
-        console.log("✅ Login exitoso para:", authUser.username);
+        console.log("✅ Login exitoso. Enviando datos al cliente para:", authUser.username);
         return res.status(200).json({ data: authUser });
 
     } catch (error: any) {

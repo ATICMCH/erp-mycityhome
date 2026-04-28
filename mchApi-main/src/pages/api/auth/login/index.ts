@@ -6,7 +6,7 @@ import { IResponse } from "@/api/modelsextra/IResponse";
 import { IErrorResponse } from "@/api/modelsextra/IErrorResponse";
 import Constants from "@/api/helpers/Constants";
 import UtilInstance from "@/api/helpers/Util";
-import DbConnection from "@/api/helpers/DbConnection"; // Importamos la conexión base
+import DbConnection from "@/api/helpers/DbConnection";
 
 const handler = nc(
       {
@@ -34,52 +34,57 @@ const handler = nc(
                   const authUser = dataDB as any; 
                   if (!authUser.id) return res.status(401).json({ error: 'User ID not found' });
 
-                  // --- LÓGICA DE FICHAJE MEDIANTE CONEXIÓN DIRECTA ---
-                  const registrarEntradaSilenciosa = async () => {
+                  // --- LÓGICA DE FICHAJE (CORRECCIÓN DE ARGUMENTOS) ---
+                  const registrarEntradaSegura = async () => {
                         const db = new DbConnection();
                         try {
                               const ahora = new Date();
                               const hoySQL = ahora.toLocaleDateString('sv-SE'); 
                               const horaSQL = ahora.toLocaleTimeString('es-ES', { hour12: false });
+                              const ipCliente = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1').toString().split(',')[0];
 
-                              // 1. Verificar si ya existe el registro hoy
-                              const checkQuery = `SELECT id FROM tbl_fichaje_oficina WHERE idusuario = $1 AND fecha = $2 LIMIT 1`;
-                              const checkResult: any = await db.execQueryPool(checkQuery, [authUser.id, hoySQL]);
+                              // Creamos el objeto de consulta compatible con 1 solo argumento si es necesario
+                              // o usamos la forma de objeto que acepta la librería pg interna
+                              const checkQuery = {
+                                    text: `SELECT id FROM tbl_fichaje_oficina WHERE idusuario = $1 AND fecha = $2 LIMIT 1`,
+                                    values: [authUser.id, hoySQL]
+                              };
+
+                              const checkResult: any = await db.execQueryPool(checkQuery as any);
 
                               if (!checkResult || checkResult.length === 0) {
-                                    console.log(`⏱️ Insertando fichaje automático: ${authUser.username}`);
+                                    console.log(`⏱️ Registrando entrada automática: ${authUser.username}`);
                                     
-                                    const insertQuery = `
-                                          INSERT INTO tbl_fichaje_oficina 
-                                          (idusuario, usuario, fecha, entrada, estado, tipo_ejecucion, ip, observacion, idusuario_ultimo_cambio, jornada, horario, token) 
-                                          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`;
-                                    
-                                    const params = [
-                                          authUser.id,
-                                          authUser.nombre_completo || authUser.username,
-                                          hoySQL,
-                                          horaSQL,
-                                          1, // estado activo
-                                          'automático',
-                                          (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1').toString().split(',')[0],
-                                          'Entrada automática LOGIN',
-                                          authUser.id,
-                                          authUser.jornada || 'Jornada Completa',
-                                          authUser.horario || 'HC',
-                                          UtilInstance.getUUID()
-                                    ];
+                                    const insertQuery = {
+                                          text: `INSERT INTO tbl_fichaje_oficina 
+                                                (idusuario, usuario, fecha, entrada, estado, tipo_ejecucion, ip, observacion, idusuario_ultimo_cambio, jornada, horario, token) 
+                                                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+                                          values: [
+                                                authUser.id,
+                                                authUser.nombre_completo || authUser.username,
+                                                hoySQL,
+                                                horaSQL,
+                                                1,
+                                                'automático',
+                                                ipCliente,
+                                                'Entrada automática LOGIN',
+                                                authUser.id,
+                                                authUser.jornada || 'Jornada Completa',
+                                                authUser.horario || 'HC',
+                                                UtilInstance.getUUID()
+                                          ]
+                                    };
 
-                                    await db.execQueryPool(insertQuery, params);
-                                    console.log("✅ REGISTRO DE FICHAJE COMPLETADO");
+                                    await db.execQueryPool(insertQuery as any);
+                                    console.log("✅ FICHAJE REGISTRADO EXITOSAMENTE");
                               }
                         } catch (err: any) {
                               console.error("⚠️ Error en DB Fichaje:", err.message);
                         }
                   };
 
-                  // Ejecutamos la función de registro
-                  registrarEntradaSilenciosa();
-                  // --- FIN LÓGICA FICHAJE ---
+                  registrarEntradaSegura();
+                  // --- FIN LÓGICA ---
 
                   console.log("✅ Login exitoso:", authUser.username);
                   return res.status(200).json({ data: authUser });

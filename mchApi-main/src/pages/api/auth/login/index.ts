@@ -21,6 +21,8 @@ const handler = nc({
         const user: string = (rawBody.user || rawBody.email || rawBody.username || '').toString();
         const password: string = (rawBody.password || rawBody.pass || '').toString();
 
+        if (!user || !password) return res.status(400).json({ error: 'Faltan credenciales' });
+
         let el: AuthUserBusiness = new AuthUserBusiness();
         let dataDB: IAuthUser | IErrorResponse = await el.authUser(user, password);
 
@@ -30,14 +32,16 @@ const handler = nc({
 
         const authUser = dataDB as IAuthUser;
 
-        if (authUser.estado === Constants.code_status_baja) return res.status(403).json({ error: 'user blocked' });
-        if (authUser.estado === Constants.code_status_delete) return res.status(404).json({ error: 'user delete' });
+        // Validaciones de estado
+        if (authUser.estado === Constants.code_status_baja) return res.status(403).json({ error: 'Usuario bloqueado' });
+        if (authUser.estado === Constants.code_status_delete) return res.status(404).json({ error: 'Usuario eliminado' });
 
+        console.log("✅ Login exitoso. Usuario devuelto al cliente:", authUser.username);
         return res.status(200).json({ data: authUser });
 
     } catch (error: any) {
-        console.error("💥 Error General:", error);
-        return res.status(500).json({ error: "Internal Server Error" });
+        console.error("💥 Error en Login API:", error);
+        return res.status(500).json({ error: "Error interno del servidor" });
     }
 });
 

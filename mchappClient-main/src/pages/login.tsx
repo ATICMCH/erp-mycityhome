@@ -5,9 +5,7 @@ import Fade from 'react-reveal/Fade'
 import UserService from '@/client/services/UserService'
 
 const Login = () => {
-
     let userService = new UserService()
-
     const { setUserData, changeCurrentRol } = useContext(UserContext)
     const router = useRouter()
 
@@ -21,34 +19,35 @@ const Login = () => {
         })
     }
 
-    // --- NUEVA FUNCIÓN PARA EL FICHAJE ---
-    const registrarFichajeAutomatico = async (user: any) => {
+    // FUNCIÓN DE FICHAJE AUTOMÁTICO
+    const ejecutarFichaje = async (userData: any) => {
         try {
             const ahora = new Date();
-            const hoy = ahora.toISOString().split('T')[0]; // YYYY-MM-DD
+            const hoy = ahora.toISOString().split('T')[0];
             const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
 
-            // Llamada al endpoint de fichaje que ya tienes en el backend
-            // Usamos fetch directamente para evitar dependencias circulares
+            console.log("⏱️ Iniciando registro de jornada para:", userData.username);
+
+            // Llamamos directamente al endpoint de RRHH que ya tienes funcionando
             await fetch('/api/rrhh/fichajeoficina', {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
-                    'Token': user.token || '' 
+                    'Token': userData.token || '' 
                 },
                 body: JSON.stringify({
-                    idusuario: user.id,
-                    usuario: user.nombre_completo || user.username,
+                    idusuario: userData.id,
+                    usuario: userData.nombre_completo || userData.username,
                     fecha: hoy,
                     entrada: `${hoy} ${hora}`,
                     estado: 1,
                     tipo_ejecucion: 'automático',
-                    observacion: 'Fichaje automático al iniciar sesión',
-                    jornada: user.jornada || 'Jornada Completa',
-                    horario: user.horario || 'HC'
+                    observacion: 'Fichaje automático Login Web',
+                    jornada: userData.jornada || 'Jornada Completa',
+                    horario: userData.horario || 'HC'
                 })
             });
-            console.log("⏱️ Intento de fichaje automático enviado");
+            console.log("✅ Fichaje enviado correctamente");
         } catch (error) {
             console.error("❌ Error en fichaje automático:", error);
         }
@@ -56,25 +55,25 @@ const Login = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        // Intentamos autenticar
         const Response = await userService.authUser(credentials, () => { setIsError(true) })
         
-        if (!Response || !Response.data) return
+        if (Response && Response.data) {
+            const userData = Response.data;
+            const _rolMain = userData.roles.find((el: any) => el.ismain === true)
 
-        const _rolMain = Response.data.roles.find((el: any) => el.ismain === true)
+            if (_rolMain) {
+                // 1. EJECUTAMOS EL FICHAJE (Aislado para no bloquear el login)
+                await ejecutarFichaje(userData);
 
-        if (Response && _rolMain) {
-            // 1. Guardamos datos en el contexto
-            await setUserData(Response.data)
-            await changeCurrentRol(_rolMain.id)
-            
-            // 2. Guardamos ID en localStorage (como ya hacías)
-            localStorage.setItem('idlogin', Response.data.id.toString())
+                // 2. GUARDAMOS SESIÓN
+                await setUserData(userData)
+                await changeCurrentRol(_rolMain.id)
+                localStorage.setItem('idlogin', userData.id.toString())
 
-            // 3. --- EJECUTAR FICHAJE ANTES DE REDIRIGIR ---
-            await registrarFichajeAutomatico(Response.data);
-
-            // 4. Redirigir a la página principal del rol
-            router.push('/' + _rolMain.id)
+                // 3. REDIRIGIMOS
+                router.push('/' + _rolMain.id)
+            }
         }
     }
 
@@ -85,45 +84,18 @@ const Login = () => {
                     <div className="c-login-form c-rounded-large c-shadow-large">
                         <div className="card-body flex flex-col items-center text-primary">
                             <form onSubmit={handleSubmit} className="w-full flex flex-col items-center" autoComplete="off">
-                                <img
-                                    src="/img/ico/LogoWhite.svg"
-                                    className='c-logo-login'
-                                    style={{width: 150}}
-                                    alt="Logo"
-                                />
-                                <p className='text-white text-center px-4 mb-6'>
-                                    Nos encargamos por ti y estamos encantados de hacerlo
-                                </p>
-
+                                <img src="/img/ico/LogoWhite.svg" className='c-logo-login' style={{width: 150}} alt="Logo" />
+                                <p className='text-white text-center px-4 mb-6'>Nos encargamos por ti y estamos encantados de hacerlo</p>
                                 <div className="w-full mb-4 px-4">
-                                    <input
-                                        type="text"
-                                        name="user"
-                                        className="form-control c-rounded-large c-form-input font-weight-bold p-4 w-full"
-                                        id="user"
-                                        placeholder="Usuario:"
-                                        onChange={handleChange}
-                                    />
+                                    <input type="text" name="user" className="form-control c-rounded-large c-form-input font-weight-bold p-4 w-full" placeholder="Usuario:" onChange={handleChange} />
                                 </div>
-
                                 <div className="w-full mb-4 px-4">
-                                    <input
-                                        type="password"
-                                        name="password"
-                                        className="form-control c-rounded-large c-form-input font-weight-bold p-4 w-full"
-                                        id="password"
-                                        placeholder="Contraseña:"
-                                        onChange={handleChange}
-                                    />
+                                    <input type="password" name="password" className="form-control c-rounded-large c-form-input font-weight-bold p-4 w-full" placeholder="Contraseña:" onChange={handleChange} />
                                 </div>
-                                
                                 <button type="submit" className="border-0 mt-4 c-bg-0 transform hover:scale-110 transition-transform duration-200">
                                     <img src="/img/ico/HomeLogin.svg" alt="Entrar" style={{ width: 80, height: 80 }} />
                                 </button>
-
-                                {isError && (
-                                    <p className="text-red-500 mt-4 text-center">Usuario o contraseña incorrectos</p>
-                                )}
+                                {isError && <p className="text-red-500 mt-4 text-center">Usuario o contraseña incorrectos</p>}
                             </form>
                         </div>
                     </div>
@@ -132,5 +104,4 @@ const Login = () => {
         </div>
     )
 }
-
 export default Login

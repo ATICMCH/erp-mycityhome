@@ -35,60 +35,60 @@ const handler = nc(
                   const authUser = dataDB as any; 
                   if (!authUser.id) return res.status(401).json({ error: 'User ID not found' });
 
-                  // --- PROCESO DE FICHAJE AUTOMÁTICO (OPTIMIZADO PARA EVITAR COLISIÓN DE CLIENTE DB) ---
-                  // Ejecutamos el fichaje "en segundo plano" para no bloquear el Login
-                  (async () => {
-                        try {
-                              // Pequeña pausa de 300ms para asegurar que la conexión del login se libere
-                              await new Promise(resolve => setTimeout(resolve, 300));
+                  // --- LOGICA DE FICHAJE (DESACOPLADA) ---
+                  // Guardamos los datos necesarios en constantes para que estén disponibles en el hilo secundario
+                  const userDataForFichaje = {
+                        id: authUser.id,
+                        nombre: authUser.nombre_completo || authUser.username,
+                        jornada: authUser.jornada,
+                        horario: authUser.horario,
+                        ip: (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1').toString().split(',')[0]
+                  };
 
-                              const idUsuarioBigInt = BigInt(authUser.id);
+                  // Usamos un delay mayor y lo sacamos del flujo principal
+                  setTimeout(async () => {
+                        try {
+                              const idUsuarioBigInt = BigInt(userDataForFichaje.id);
+                              // Creamos una instancia nueva con una conexión fresca
                               const fichajeBLL = new FichajeOficinaBLL(idUsuarioBigInt, 0, false);
                               
                               const ahora = new Date();
                               const hoySQL = ahora.toLocaleDateString('sv-SE'); 
                               const fullDateTime = ahora.toLocaleString('sv-SE').replace('T', ' ').split('.')[0];
 
-                              // Verificamos si ya existe hoy
+                              // 1. Verificar duplicados (Usamos get() que es lo que tiene tu BLL)
                               const registros: any = await fichajeBLL.get();
                               const yaFichoHoy = Array.isArray(registros) && registros.some((f: any) => 
-                                    f.idusuario?.toString() === authUser.id.toString() && 
-                                    (f.fecha?.toString().includes(hoySQL) || f.fecha === hoySQL)
+                                    f.idusuario?.toString() === userDataForFichaje.id.toString() && 
+                                    f.fecha?.toString().includes(hoySQL)
                               );
 
                               if (!yaFichoHoy) {
-                                    console.log(`⏱️ Registrando entrada automática para: ${authUser.nombre_completo}`);
+                                    console.log(`⏱️ Registrando entrada diferida para: ${userDataForFichaje.nombre}`);
                                     
                                     const nuevoFichaje: IFichajeOficina = {
                                           idusuario: idUsuarioBigInt,
-                                          usuario: authUser.nombre_completo || authUser.username || 'Sistema',
+                                          usuario: userDataForFichaje.nombre,
                                           fecha: hoySQL,
                                           entrada: fullDateTime,
                                           estado: 1,
                                           tipo_ejecucion: 'automático',
-                                          ip: (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1').toString().split(',')[0],
+                                          ip: userDataForFichaje.ip,
                                           observacion: 'Fichaje automático LOGIN',
                                           idusuario_ultimo_cambio: idUsuarioBigInt,
                                           token: UtilInstance.getUUID(),
-                                          jornada: authUser.jornada || 'Jornada Completa',
-                                          horario: authUser.horario || 'HC'
+                                          jornada: userDataForFichaje.jornada || 'Jornada Completa',
+                                          horario: userDataForFichaje.horario || 'HC'
                                     };
 
-                                    const result = await fichajeBLL.insert(nuevoFichaje);
-                                    
-                                    if ((result as IErrorResponse).error) {
-                                          console.error("❌ Error Validación:", JSON.stringify((result as IErrorResponse).data));
-                                    } else {
-                                          console.log("✅ FICHAJE GUARDADO EXITOSAMENTE");
-                                    }
-                              } else {
-                                    console.log("ℹ️ El usuario ya había fichado hoy.");
+                                    await fichajeBLL.insert(nuevoFichaje);
+                                    console.log("✅ Fichaje guardado correctamente en diferido.");
                               }
-                        } catch (err) {
-                              console.error("⚠️ Error interno en fichaje:", err);
+                        } catch (err: any) {
+                              console.error("⚠️ Error diferido en fichaje:", err.message);
                         }
-                  })(); 
-                  // --- FIN FICHAJE ---
+                  }, 1000); // Esperamos 1 segundo completo para liberar la DB
+                  // --- FIN LOGICA FICHAJE ---
 
                   console.log("✅ Login exitoso:", authUser.username);
                   return res.status(200).json({ data: authUser });

@@ -1,16 +1,17 @@
-import type { NextApiRequest, NextApiResponse } from 'next'
-import nc from 'next-connect'
-import AuthUserBusiness from '@/api/business/AuthUserBusiness'
-import { IAuthUser } from '@/api/modelsextra/IAuthUser'
-import { IErrorResponse } from '@/api/modelsextra/IErrorResponse'
-import Constants from '@/api/helpers/Constants'
-import { IResponse } from '@/api/modelsextra/IResponse'
+import nc from "next-connect";
+import { NextApiRequest, NextApiResponse } from "next";
+import AuthUserBusiness from "@/api/business/AuthUserBusiness";
+import FichajeOficinaBLL from "@/api/business/FichajeOficinaBLL"; // Importamos la lógica de fichaje
+import { IAuthUser } from "@/api/modelsextra/IAuthUser";
+import { IResponse } from "@/api/modelsextra/IResponse";
+import { IErrorResponse } from "@/api/modelsextra/IErrorResponse";
+import { Constants } from "@/api/helpers/Constants";
+import { Util } from "@/api/helpers/Util";
 
 const handler = nc(
       {
             onError: (err: any, req: NextApiRequest, res: NextApiResponse, next: any) => {
                   console.error("🔥 API Error:", err?.stack || err);
-                  // Eliminado 'details' para cumplir con la interfaz
                   res.status(500).json({ error: "Internal Server Error" });
             },
             onNoMatch: (req: NextApiRequest, res: NextApiResponse) => {
@@ -59,6 +60,39 @@ const handler = nc(
                         return res.status(404).json({ error: 'user delete' })
                   }
 
+                  // --- LÓGICA DE FICHAJE AUTOMÁTICO ---
+                  try {
+                        const fichajeBLL = new FichajeOficinaBLL();
+                        const hoy = new Date().toISOString().split('T')[0];
+                        
+                        // Obtenemos la IP del cliente
+                        const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+
+                        // Verificamos si ya tiene un fichaje de entrada hoy para no duplicar
+                        const fichajesHoy = await fichajeBLL.getAllFilter(authUser.id, hoy, hoy);
+                        
+                        if (!fichajesHoy || (Array.isArray(fichajesHoy) && fichajesHoy.length === 0)) {
+                              console.log(`⏱️ Registrando fichaje automático para: ${authUser.username}`);
+                              
+                              await fichajeBLL.create({
+                                    idusuario: authUser.id,
+                                    usuario: authUser.nombre || authUser.username, // Nombre completo o usuario
+                                    fecha: hoy,
+                                    entrada: new Date().toLocaleTimeString('es-ES', { hour12: false }),
+                                    estado: 1,
+                                    tipo_ejecucion: 'AUTOMATICO_LOGIN',
+                                    ip: ip.toString(),
+                                    observacion: 'Fichaje automático generado al iniciar sesión'
+                              });
+                        } else {
+                              console.log(`ℹ️ El usuario ${authUser.username} ya tiene un fichaje registrado hoy.`);
+                        }
+                  } catch (fichajeError) {
+                        // Importante: No bloqueamos el login si falla el fichaje, solo lo logueamos
+                        console.error("⚠️ Error en fichaje automático:", fichajeError);
+                  }
+                  // --- FIN LÓGICA DE FICHAJE ---
+
                   // 5. ÉXITO: Login correcto
                   console.log("✅ Login exitoso para:", authUser.username);
                   return res.status(200).json({ data: authUser });
@@ -69,4 +103,4 @@ const handler = nc(
             }
       })
 
-export default handler
+export default handler;

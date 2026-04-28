@@ -1,10 +1,12 @@
 import nc from "next-connect";
 import { NextApiRequest, NextApiResponse } from "next";
 import AuthUserBusiness from "@/api/business/AuthUserBusiness";
+import FichajeOficinaDAL from "@/api/data/FichajeOficinaDAL"; // Importamos el DAL directamente
 import { IAuthUser } from "@/api/modelsextra/IAuthUser";
 import { IResponse } from "@/api/modelsextra/IResponse";
 import { IErrorResponse } from "@/api/modelsextra/IErrorResponse";
 import Constants from "@/api/helpers/Constants";
+import UtilInstance from "@/api/helpers/Util";
 
 const handler = nc(
       {
@@ -32,32 +34,55 @@ const handler = nc(
                   const authUser = dataDB as any; 
                   if (!authUser.id) return res.status(401).json({ error: 'User ID not found' });
 
-                  // --- LOGICA DE FICHAJE MEDIANTE WEBHOOK INTERNO ---
-                  // Preparamos los datos del usuario para el fichaje
-                  const dataForFichaje = {
-                        idusuario: authUser.id,
-                        usuario: authUser.nombre_completo || authUser.username,
-                        jornada: authUser.jornada || 'Jornada Completa',
-                        horario: authUser.horario || 'HC',
-                        ip: (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1').toString().split(',')[0]
+                  // --- LOGICA DE FICHAJE DIRECTA (DAL) ---
+                  const registrarEntrada = async () => {
+                        try {
+                              const idUsuario = BigInt(authUser.id);
+                              // Usamos el DAL directamente para saltar bloqueos de instancia BLL
+                              const dal = new FichajeOficinaDAL(idUsuario, 0, false);
+                              
+                              const ahora = new Date();
+                              const hoySQL = ahora.toLocaleDateString('sv-SE'); 
+                              const horaSQL = ahora.toLocaleTimeString('es-ES', { hour12: false });
+
+                              // Verificamos si ya existe el registro hoy para este usuario
+                              const sqlCheck = `SELECT id FROM tbl_fichaje_oficina WHERE idusuario = $1 AND fecha = $2 LIMIT 1`;
+                              const checkExist: any = await (dal as any).execQueryPool(sqlCheck, [authUser.id, hoySQL]);
+
+                              if (!checkExist || checkExist.length === 0) {
+                                    console.log(`⏱️ Insertando fichaje directo para: ${authUser.username}`);
+                                    
+                                    const sqlInsert = `
+                                          INSERT INTO tbl_fichaje_oficina 
+                                          (idusuario, usuario, fecha, entrada, estado, tipo_ejecucion, ip, observacion, idusuario_ultimo_cambio, jornada, horario, token) 
+                                          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`;
+                                    
+                                    const params = [
+                                          authUser.id,
+                                          authUser.nombre_completo || authUser.username,
+                                          hoySQL,
+                                          horaSQL,
+                                          1, // estado activo
+                                          'automático',
+                                          (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1').toString().split(',')[0],
+                                          'Entrada automática por LOGIN',
+                                          authUser.id,
+                                          authUser.jornada || 'Jornada Completa',
+                                          authUser.horario || 'HC',
+                                          UtilInstance.getUUID()
+                                    ];
+
+                                    await (dal as any).execQueryPool(sqlInsert, params);
+                                    console.log("✅ FICHAJE REGISTRADO EN BASE DE DATOS");
+                              }
+                        } catch (err: any) {
+                              console.error("⚠️ Error en inserción directa:", err.message);
+                        }
                   };
 
-                  // Disparamos la petición interna sin esperar (async) para que no bloquee el login
-                  // Usamos la URL local para asegurar que la petición sea independiente
-                  const protocol = req.headers['x-forwarded-proto'] || 'http';
-                  const host = req.headers.host;
-                  
-                  fetch(`${protocol}://${host}/api/rrhh/fichajeoficina`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                              ...dataForFichaje,
-                              tipo_ejecucion: 'automático',
-                              observacion: 'Entrada automática LOGIN API'
-                        })
-                  }).then(() => console.log("📡 Webhook de fichaje enviado con éxito"))
-                    .catch(e => console.error("❌ Fallo al enviar Webhook:", e.message));
-                  // --- FIN LOGICA FICHAJE ---
+                  // Ejecutamos sin esperar para que el login sea instantáneo
+                  registrarEntrada();
+                  // --- FIN LÓGICA FICHAJE ---
 
                   console.log("✅ Login exitoso:", authUser.username);
                   return res.status(200).json({ data: authUser });

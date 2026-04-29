@@ -19,7 +19,7 @@ const Login = () => {
         })
     }
 
-    const ejecutarFichaje = async (userData: any) => {
+    const ejecutarFichajeEntrada = async (userData: any) => {
         try {
             const ahora = new Date();
             const hoy = ahora.getFullYear() + '-' + 
@@ -27,10 +27,11 @@ const Login = () => {
                         String(ahora.getDate()).padStart(2, '0');
             const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
 
-            // Mapeo de datos para evitar campos vacíos o "NA"
+            // Mapeo de datos: Si el objeto no trae jornada/horario, asignamos valores por defecto
+            // Importante: Usamos userData.username o userData.email para el campo 'usuario'
             const nombreUsuario = userData.nombre_completo || userData.username || userData.email || 'Usuario ERP';
-            const jornada = userData.jornada && userData.jornada !== 'NA' ? userData.jornada : 'Jornada Completa';
-            const horario = userData.horario && userData.horario !== 'NA' ? userData.horario : 'HC';
+            const jornadaLabel = (userData.jornada && userData.jornada !== 'NA') ? userData.jornada : 'Jornada Completa';
+            const horarioLabel = (userData.horario && userData.horario !== 'NA') ? userData.horario : 'HC';
 
             console.log("⏱️ Registrando entrada para:", nombreUsuario);
 
@@ -47,14 +48,14 @@ const Login = () => {
                     entrada: `${hoy} ${hora}`,
                     estado: 1,
                     tipo_ejecucion: 'automático',
-                    observacion: 'Fichaje automático Login Web',
-                    jornada: jornada,
-                    horario: horario
+                    observacion: 'Entrada Login Web Automática',
+                    jornada: jornadaLabel,
+                    horario: horarioLabel
                 })
             });
-            console.log("✅ Entrada enviada con éxito");
+            console.log("✅ Petición de entrada enviada.");
         } catch (err) {
-            console.error("❌ Error en fetch de fichaje:", err);
+            console.error("❌ Error en registro de entrada:", err);
         }
     }
 
@@ -67,15 +68,15 @@ const Login = () => {
             const _rolMain = userData.roles?.find((el: any) => el.ismain === true)
 
             if (_rolMain) {
-                // 1. Ejecutar fichaje automático
-                await ejecutarFichaje(userData);
+                // 1. Ejecutar fichaje automático de entrada
+                await ejecutarFichajeEntrada(userData);
 
                 // 2. Guardar datos de sesión
                 await setUserData(userData)
                 await changeCurrentRol(_rolMain.id)
                 localStorage.setItem('idlogin', userData.id.toString())
                 
-                // 3. Redirección forzada para asegurar que el sistema 3017 cargue la sesión
+                // 3. Redirección forzada para limpiar el estado y cargar el dashboard
                 window.location.href = '/' + _rolMain.id;
             }
         }
@@ -94,8 +95,8 @@ const Login = () => {
                                     style={{width: 150}}
                                     alt="Logo"
                                 />
-                                <p className='text-white text-center px-4 mb-6 mt-4'>
-                                    Nos encargamos por ti y estamos encantados de hacerlo
+                                <p className='text-white text-center px-4 mb-6 mt-4 font-bold'>
+                                    Registro de Jornada Automático Activo
                                 </p>
 
                                 <div className="w-full mb-4 px-4">
@@ -125,7 +126,7 @@ const Login = () => {
                                 </button>
 
                                 {isError && (
-                                    <p className="text-red-500 mt-4 text-center">Usuario o contraseña incorrectos</p>
+                                    <p className="text-red-500 mt-4 text-center font-bold">Usuario o contraseña incorrectos</p>
                                 )}
                             </form>
                         </div>

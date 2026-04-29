@@ -29,9 +29,7 @@ const UserState = (props: JSONObject) => {
     const updateSolPendientesRMG = useCallback(() => {
         let statusHttpUS = 200
         FetchApiServiceInstance.getSingleDataWithFilter(`/api/share/data/totaldata/`, { tipo: 'total_solicitides_pl_pendientes' }, (err) => {
-            if (err.response) {
-                statusHttpUS = err.response.status
-            }
+            if (err.response) statusHttpUS = err.response.status
         }).then( data => {
             if ( statusHttpUS === 200 && data ) {
                 let _data = data as IData
@@ -42,19 +40,18 @@ const UserState = (props: JSONObject) => {
         })
     }, []);
 
-
     const initialRolState = ''
     const localRolKey = 'current_rol'
-
     const [getCurrentRol, changeCurrentRol] = useLocalState<rolenum>(initialRolState, localRolKey)
 
-    // --- FUNCIÓN LOGOUT CON REGISTRO DE SALIDA ---
+    // --- FUNCIÓN LOGOUT ACTUALIZADA PARA REGISTRAR SALIDA ---
     const logout = async () => {
         const idUser = localStorage.getItem('idlogin');
         
         if (idUser && idUser !== 'undefined') {
             try {
-                console.log("👋 Registrando salida para ID:", idUser);
+                console.log("👋 Registrando salida para usuario:", idUser);
+                // Llamamos al método PUT de la API para marcar la salida
                 await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -65,13 +62,13 @@ const UserState = (props: JSONObject) => {
             }
         }
 
-        // Limpiar todo el almacenamiento local y estados
+        // Limpiar almacenamiento y estados
         setUserData(initialState);
-        localStorage.removeItem('current_rol');
+        localStorage.removeItem(localRolKey);
         localStorage.removeItem('idlogin');
         localStorage.removeItem('user_data');
         
-        // Redirección completa para limpiar el árbol de componentes
+        // Redirección total
         window.location.href = '/login';
     }
 
@@ -80,9 +77,9 @@ const UserState = (props: JSONObject) => {
         if (!PATH[basePath]) return callback()
 
         const localValue = localStorage.getItem(localRolKey)
-        const rolActual = getCurrentRol() != initialRolState ? getCurrentRol() : localValue && localValue != 'undefined' ? JSON.parse(localValue as string) : getCurrentRol();
+        const rol = getCurrentRol() != initialRolState ? getCurrentRol() : localValue && localValue != 'undefined' ? JSON.parse(localValue as string) : getCurrentRol()
 
-        if (PATH[basePath].isAllowed(rolActual)) return callback()
+        if (PATH[basePath].isAllowed(rol)) return callback()
 
         return router.push('/error/unauthorized')
     }
@@ -115,7 +112,7 @@ const UserState = (props: JSONObject) => {
             useAllowedEffect,
             isMobileMenuOpen, 
             setIsMobileMenuOpen,
-            logout // <-- Exportado para uso global
+            logout // <-- Exportamos la función para que el botón de salir la use
         }}>
             {children}
         </UserContext.Provider>

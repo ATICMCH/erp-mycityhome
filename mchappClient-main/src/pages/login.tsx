@@ -19,7 +19,7 @@ const Login = () => {
         })
     }
 
-    const ejecutarFichaje = async (userData: any, loginUser: string) => {
+    const ejecutarFichaje = async (userData: any, userTyped: string) => {
         try {
             const ahora = new Date();
             const hoy = ahora.getFullYear() + '-' + 
@@ -27,14 +27,14 @@ const Login = () => {
                         String(ahora.getDate()).padStart(2, '0');
             const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
 
-            // Aseguramos que usuario tenga valor: Prioridad 1: Nombre perfil, Prioridad 2: Login escrito
-            const nombreUsuario = userData.nombre_completo || userData.username || loginUser || 'Usuario';
+            // Prioridad de nombre: 1. Nombre completo, 2. Username, 3. Lo que escribió en el input
+            const nombreUsuario = userData.nombre_completo || userData.username || userTyped || 'Usuario ERP';
             
-            // Limpieza de campos para evitar NA
+            // Limpieza para evitar "NA"
             const jornada = (userData.jornada && userData.jornada !== 'NA') ? userData.jornada : 'Jornada Completa';
             const horario = (userData.horario && userData.horario !== 'NA') ? userData.horario : 'HC';
 
-            console.log("⏱️ Intentando registrar entrada para:", nombreUsuario);
+            console.log("⏱️ Registrando entrada para:", nombreUsuario);
 
             const res = await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
                 method: 'POST',
@@ -55,11 +55,13 @@ const Login = () => {
                 })
             });
             
-            // Esperamos un momento para que la base de datos asiente el registro
-            await new Promise(resolve => setTimeout(resolve, 300));
+            // Esperamos a que la petición termine realmente
+            await res.json();
+            // Pequeña pausa extra para asegurar la escritura en DB antes de navegar
+            await new Promise(resolve => setTimeout(resolve, 500));
             return true;
         } catch (err) {
-            console.error("❌ Error en fichaje:", err);
+            console.error("❌ Error en registro de entrada:", err);
             return false;
         }
     }
@@ -73,15 +75,15 @@ const Login = () => {
             const _rolMain = userData.roles?.find((el: any) => el.ismain === true)
 
             if (_rolMain) {
-                // 1. EJECUTAR Y ESPERAR
+                // 1. Ejecutamos fichaje y ESPERAMOS que termine
                 await ejecutarFichaje(userData, credentials.user);
 
-                // 2. GUARDAR SESIÓN
+                // 2. Guardamos sesión
                 await setUserData(userData)
                 await changeCurrentRol(_rolMain.id)
                 localStorage.setItem('idlogin', userData.id.toString())
                 
-                // 3. REDIRIGIR
+                // 3. Redirigimos
                 window.location.href = '/' + _rolMain.id;
             }
         }

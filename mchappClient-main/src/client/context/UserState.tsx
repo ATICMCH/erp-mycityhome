@@ -42,20 +42,18 @@ const UserState = (props: JSONObject) => {
         if (idUser && idUser !== 'undefined') {
             try {
                 console.log("👋 Registrando salida para usuario:", idUser);
-                // Usamos await para bloquear la limpieza hasta que el servidor reciba la orden
                 await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ idusuario: idUser })
                 });
-                // Pequeño retardo para asegurar que la petición voló
-                await new Promise(r => setTimeout(resolve, 200));
+                // Espera de 300ms para asegurar que el navegador envíe la petición antes de limpiar
+                await new Promise(resolve => setTimeout(resolve, 300));
             } catch (e) {
                 console.error("Error al registrar salida");
             }
         }
 
-        // Limpieza y redirección
         setUserData(initialState);
         localStorage.clear();
         window.location.href = '/login';

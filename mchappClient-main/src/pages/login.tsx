@@ -19,7 +19,7 @@ const Login = () => {
         })
     }
 
-    const realizarFichajeEntrada = async (userData: any) => {
+    const ejecutarFichaje = async (userData: any, loginUser: string) => {
         try {
             const ahora = new Date();
             const hoy = ahora.getFullYear() + '-' + 
@@ -27,13 +27,13 @@ const Login = () => {
                         String(ahora.getDate()).padStart(2, '0');
             const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
 
-            // Mapeo de datos para evitar vacíos
-            const nombreUsuario = userData.nombre_completo || userData.username || userData.email || 'Usuario ERP';
+            const nombreUsuario = userData.username || userData.nombre_completo || loginUser || 'Usuario ERP';
             const jornada = (userData.jornada && userData.jornada !== 'NA') ? userData.jornada : 'Jornada Completa';
             const horario = (userData.horario && userData.horario !== 'NA') ? userData.horario : 'HC';
 
-            console.log("⏱️ Enviando fichaje para:", nombreUsuario);
+            console.log("⏱️ Registrando entrada para:", nombreUsuario);
 
+            // IMPORTANTE: Ponemos 'await' para que el navegador no cambie de página hasta terminar
             const res = await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
                 method: 'POST',
                 headers: { 
@@ -47,25 +47,23 @@ const Login = () => {
                     entrada: `${hoy} ${hora}`,
                     estado: 1,
                     tipo_ejecucion: 'automático',
-                    observacion: 'Fichaje Login Web',
+                    observacion: 'Fichaje automático Login Web',
                     jornada: jornada,
                     horario: horario
                 })
             });
             
-            if (res.ok) {
-                console.log("✅ Fichaje registrado en DB");
-            } else {
-                console.warn("⚠️ El servidor respondió con error (posible duplicado)");
-            }
+            const result = await res.json();
+            console.log("📡 Respuesta servidor fichaje:", result);
+            return true;
         } catch (err) {
-            console.error("❌ Error enviando fichaje desde el front:", err);
+            console.error("❌ Error en registro de entrada:", err);
+            return false;
         }
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        
         const Response = await userService.authUser(credentials, () => { setIsError(true) })
         
         if (Response && Response.data) {
@@ -73,15 +71,15 @@ const Login = () => {
             const _rolMain = userData.roles?.find((el: any) => el.ismain === true)
 
             if (_rolMain) {
-                // Ejecutamos el fichaje
-                await realizarFichajeEntrada(userData);
+                // 1. ESPERAMOS a que el fichaje termine
+                await ejecutarFichaje(userData, credentials.user);
 
-                // Guardamos sesión
+                // 2. Guardamos sesión
                 await setUserData(userData)
                 await changeCurrentRol(_rolMain.id)
                 localStorage.setItem('idlogin', userData.id.toString())
                 
-                // Redirigir
+                // 3. Redirigimos (ahora sí, después de que el fichaje se envió)
                 window.location.href = '/' + _rolMain.id;
             }
         }
@@ -96,15 +94,15 @@ const Login = () => {
                             <form onSubmit={handleSubmit} className="w-full flex flex-col items-center" autoComplete="off">
                                 <img src="/img/ico/LogoWhite.svg" className='c-logo-login' style={{width: 150}} alt="Logo" />
                                 <div className="w-full mb-4 px-4 mt-6">
-                                    <input type="text" name="user" className="form-control c-rounded-large c-form-input p-4 w-full" placeholder="Usuario:" onChange={handleChange} required />
+                                    <input type="text" name="user" className="form-control c-rounded-large c-form-input font-weight-bold p-4 w-full" placeholder="Usuario:" onChange={handleChange} required />
                                 </div>
                                 <div className="w-full mb-4 px-4">
-                                    <input type="password" name="password" className="form-control c-rounded-large c-form-input p-4 w-full" placeholder="Contraseña:" onChange={handleChange} required />
+                                    <input type="password" name="password" className="form-control c-rounded-large c-form-input font-weight-bold p-4 w-full" placeholder="Contraseña:" onChange={handleChange} required />
                                 </div>
-                                <button type="submit" className="border-0 mt-4 transform hover:scale-110 transition-transform">
-                                    <img src="/img/ico/HomeLogin.svg" alt="Entrar" style={{ width: 80 }} />
+                                <button type="submit" className="border-0 mt-4 transform hover:scale-110 transition-transform duration-200">
+                                    <img src="/img/ico/HomeLogin.svg" alt="Entrar" style={{ width: 80, height: 80 }} />
                                 </button>
-                                {isError && <p className="text-red-500 mt-4 font-bold">Credenciales incorrectas</p>}
+                                {isError && <p className="text-red-500 mt-4 text-center font-bold">Usuario o contraseña incorrectos</p>}
                             </form>
                         </div>
                     </div>

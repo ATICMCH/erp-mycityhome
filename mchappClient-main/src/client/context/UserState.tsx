@@ -36,19 +36,25 @@ const UserState = (props: JSONObject) => {
     const localRolKey = 'current_rol'
     const [getCurrentRol, changeCurrentRol] = useLocalState<rolenum>(initialRolState, localRolKey)
 
+    // --- LOGOUT ASÍNCRONO PARA ESPERAR AL FICHAJE DE SALIDA ---
     const logout = async () => {
         const idUser = localStorage.getItem('idlogin');
+        
         if (idUser && idUser !== 'undefined') {
             try {
+                console.log("👋 Registrando salida para usuario:", idUser);
                 await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ idusuario: idUser })
                 });
             } catch (e) {
-                console.error("Error salida");
+                console.error("Error al registrar salida");
             }
         }
+
+        // Limpiamos después de que la petición se haya enviado
+        setUserData(initialState);
         localStorage.clear();
         window.location.href = '/login';
     }
@@ -57,8 +63,9 @@ const UserState = (props: JSONObject) => {
         const basePath = '/'+router.pathname.split('/')[1]
         if (!PATH[basePath]) return callback()
         const localValue = localStorage.getItem(localRolKey)
-        const rol = getCurrentRol() != initialRolState ? getCurrentRol() : localValue && localValue != 'undefined' ? JSON.parse(localValue as string) : getCurrentRol();
-        if (PATH[basePath].isAllowed(rol)) return callback()
+        const rolActual = getCurrentRol() != initialRolState ? getCurrentRol() : localValue && localValue != 'undefined' ? JSON.parse(localValue as string) : getCurrentRol();
+        
+        if (PATH[basePath].isAllowed(rolActual)) return callback()
         return router.push('/error/unauthorized')
     }
 

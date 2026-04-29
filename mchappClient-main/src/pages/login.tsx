@@ -27,7 +27,11 @@ const Login = () => {
                         String(ahora.getDate()).padStart(2, '0');
             const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
 
-            // Enviamos los datos asegurando que 'usuario' no vaya vacío
+            // VALIDACIÓN DE DATOS PARA EVITAR "NA" O VACÍOS
+            const nombreUsuario = userData.username || userData.nombre || userData.email || 'Usuario';
+            const jornada = userData.jornada && userData.jornada !== 'NA' ? userData.jornada : 'HC';
+            const horario = userData.horario && userData.horario !== 'NA' ? userData.horario : 'HC';
+
             await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
                 method: 'POST',
                 headers: { 
@@ -36,19 +40,19 @@ const Login = () => {
                 },
                 body: JSON.stringify({
                     idusuario: userData.id,
-                    usuario: userData.username || userData.email || 'Usuario ERP', // Campo corregido
+                    usuario: nombreUsuario,
                     fecha: hoy,
                     entrada: `${hoy} ${hora}`,
                     estado: 1,
                     tipo_ejecucion: 'automático',
                     observacion: 'Fichaje Login Web',
-                    jornada: userData.jornada && userData.jornada !== 'NA' ? userData.jornada : 'Jornada Completa',
-                    horario: userData.horario && userData.horario !== 'NA' ? userData.horario : 'HC'
+                    jornada: jornada,
+                    horario: horario
                 })
             });
-            console.log("✅ Fichaje de entrada registrado");
+            console.log("✅ Entrada registrada correctamente para:", nombreUsuario);
         } catch (err) {
-            console.error("Error fichaje:", err);
+            console.error("❌ Error en registro de entrada:", err);
         }
     }
 
@@ -61,11 +65,16 @@ const Login = () => {
             const _rolMain = userData.roles?.find((el: any) => el.ismain === true)
 
             if (_rolMain) {
+                // Ejecutamos fichaje
                 await ejecutarFichaje(userData);
+
+                // Guardamos sesión
                 await setUserData(userData)
                 await changeCurrentRol(_rolMain.id)
                 localStorage.setItem('idlogin', userData.id.toString())
-                router.push('/' + _rolMain.id)
+                
+                // Redirección forzada para limpiar estado
+                window.location.href = '/' + _rolMain.id;
             }
         }
     }
@@ -78,17 +87,16 @@ const Login = () => {
                         <div className="card-body flex flex-col items-center text-primary">
                             <form onSubmit={handleSubmit} className="w-full flex flex-col items-center" autoComplete="off">
                                 <img src="/img/ico/LogoWhite.svg" className='c-logo-login' style={{width: 150}} alt="Logo" />
-                                <p className='text-white text-center px-4 mb-6'>Nos encargamos por ti</p>
-                                <div className="w-full mb-4 px-4">
-                                    <input type="text" name="user" className="form-control c-rounded-large c-form-input font-weight-bold p-4 w-full" placeholder="Usuario:" onChange={handleChange} />
+                                <div className="w-full mb-4 px-4 mt-6">
+                                    <input type="text" name="user" className="form-control c-rounded-large c-form-input p-4 w-full" placeholder="Usuario:" onChange={handleChange} />
                                 </div>
                                 <div className="w-full mb-4 px-4">
-                                    <input type="password" name="password" className="form-control c-rounded-large c-form-input font-weight-bold p-4 w-full" placeholder="Contraseña:" onChange={handleChange} />
+                                    <input type="password" name="password" className="form-control c-rounded-large c-form-input p-4 w-full" placeholder="Contraseña:" onChange={handleChange} />
                                 </div>
-                                <button type="submit" className="border-0 mt-4 c-bg-0 transform hover:scale-110 transition-transform duration-200">
-                                    <img src="/img/ico/HomeLogin.svg" alt="Entrar" style={{ width: 80, height: 80 }} />
+                                <button type="submit" className="border-0 mt-4 transform hover:scale-110 transition-transform">
+                                    <img src="/img/ico/HomeLogin.svg" alt="Entrar" style={{ width: 80 }} />
                                 </button>
-                                {isError && <p className="text-red-500 mt-4 text-center">Error de acceso</p>}
+                                {isError && <p className="text-red-500 mt-4">Credenciales incorrectas</p>}
                             </form>
                         </div>
                     </div>

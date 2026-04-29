@@ -1,65 +1,87 @@
-// HEMOS QUITADO EL IMPORT QUE DABA ERROR
-const API_BASE = "http://185.252.233.57:3018/api";
+const fetch = require('node-fetch');
+const ApiConfigurationInstance = require('./ApiConfiguration');
+const UtilCustomInstance = require('../js/UtilCustom');
 
 class AuthService {
     async login(user, password) {
-        console.log("🚀 Intento de login detectado en el cliente");
+        let endPointApi = `${ApiConfigurationInstance.pathApi}/api/auth/login`
+        if ( !endPointApi ) return []
+        let dataResult = undefined
         try {
-            const response = await fetch(`${API_BASE}/auth/login`, {
+            console.log(`[AuthService] POST ${endPointApi}`)
+            const res = await fetch( endPointApi,{
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user, password })
-            });
+                headers: { 'Content-Type': 'application/json'},
+                body: JSON.stringify({user, password})
+            })
 
-            const result = await response.json();
-
-            if (response.ok && result.data) {
-                const authUser = result.data;
-                
-                // Ejecutamos el fichaje
-                await this.registrarFichajeAutomatico(authUser);
-                
-                return authUser;
+            console.log(`[AuthService] response status: ${res.status}`)
+            if (res.status === 200) {
+                dataResult = await res.json()
             } else {
-                throw new Error(result.error || 'Credenciales incorrectas');
+                // Read body for debugging (may be empty for 204)
+                let bodyText = ''
+                try { bodyText = await res.text() } catch (e) { bodyText = '<unreadable>' }
+                console.error(`[AuthService] API responded with status ${res.status}. Body: ${bodyText}`)
+                // keep dataResult undefined to indicate failure
             }
-        } catch (error) {
-            console.error("❌ Error en AuthService:", error);
-            throw error;
+        } catch(err) {
+            console.log('Error http/https on API', err)
         }
+            
+        return dataResult
     }
 
-    async registrarFichajeAutomatico(authUser) {
+    /**
+     * Indica si la token de la session esta vigente para realizar operacion con el API REST
+     * @param {*} token 
+     * @returns true | false
+     */
+    async tokenIsValid( token ) {
+        let endPointApi = `${ApiConfigurationInstance.pathApi}/api/auth/validate/token`
+        if ( !endPointApi ) return false
+        let dataResult = false
         try {
-            const ahora = new Date();
-            const hoy = ahora.toISOString().split('T')[0];
-            const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
+            const res = await fetch( endPointApi, {
+                method: 'GET',
+                headers: {
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET,OPTIONS,DELETE,PATCH,POST,PUT",
+                    "Access-Control-Allow-Headers": "Origin, X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version",
+                    "Content-Type": "application/json",
+                    "Token": token,
+                }
+            })
 
-            console.log("⏱️ Registrando fichaje automático...");
+            if (res.status === 200) {
+                // verificar el tiempo de espera del token
+                const _result = await res.json()
+                //console.log(_result)
+                const _fechaCurrent = UtilCustomInstance.getDateCurrent()
+                //console.log(_fechaCurrent)
+                const _timeCurrent = UtilCustomInstance.getDateCustom(_fechaCurrent.fecha, _fechaCurrent.hora).timestamp
+                //console.log(UtilCustomInstance.getDateCustom(_fechaCurrent.fecha, _fechaCurrent.hora))
 
-            await fetch(`${API_BASE}/rrhh/fichajeoficina`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Token': authUser.token || '' 
-                },
-                body: JSON.stringify({
-                    idusuario: authUser.id,
-                    usuario: authUser.nombre_completo || authUser.username,
-                    fecha: hoy,
-                    entrada: `${hoy} ${hora}`,
-                    estado: 1,
-                    tipo_ejecucion: 'automático',
-                    observacion: 'Fichaje automático Web Login',
-                    jornada: authUser.jornada || 'Jornada Completa',
-                    horario: authUser.horario || 'HC'
-                })
-            });
-            console.log("✅ Petición de fichaje enviada");
-        } catch (e) {
-            console.error("❌ Error en fichaje:", e);
+                // el timestamp esta en segundos
+                // sumamos a la fecha actual 6min y si el token solo tiene de vida 5min se reenvia a login
+                const diff = (_result.exp) - (_timeCurrent + 360)
+                if ( diff < 0 ) dataResult = false
+                else dataResult = true
+                
+                // console.log('current -> ', _timeCurrent, UtilCustomInstance.getDateOfMiliSeconds(_timeCurrent*1000))
+                // console.log('token -> ', _result.exp, UtilCustomInstance.getDateOfMiliSeconds(_result.exp*1000))
+                // console.log('current futuro -> ', _timeCurrent + 360, UtilCustomInstance.getDateOfMiliSeconds((_timeCurrent+360)*1000))
+                //dataResult = true
+            } else if (res.status === 401) dataResult = false
+            else throw 'Error api'
+        } catch(err) {
+            console.log('Error http/https on API')
         }
+        return dataResult
     }
 }
 
-export default new AuthService();
+const AuthServiceInstance = new AuthService()
+Object.freeze(AuthServiceInstance)
+
+module.exports = AuthServiceInstance

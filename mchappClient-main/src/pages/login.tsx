@@ -27,13 +27,15 @@ const Login = () => {
                         String(ahora.getDate()).padStart(2, '0');
             const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
 
-            const nombreUsuario = userData.username || userData.nombre_completo || loginUser || 'Usuario ERP';
+            // Aseguramos que usuario tenga valor: Prioridad 1: Nombre perfil, Prioridad 2: Login escrito
+            const nombreUsuario = userData.nombre_completo || userData.username || loginUser || 'Usuario';
+            
+            // Limpieza de campos para evitar NA
             const jornada = (userData.jornada && userData.jornada !== 'NA') ? userData.jornada : 'Jornada Completa';
             const horario = (userData.horario && userData.horario !== 'NA') ? userData.horario : 'HC';
 
-            console.log("⏱️ Registrando entrada para:", nombreUsuario);
+            console.log("⏱️ Intentando registrar entrada para:", nombreUsuario);
 
-            // IMPORTANTE: Ponemos 'await' para que el navegador no cambie de página hasta terminar
             const res = await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
                 method: 'POST',
                 headers: { 
@@ -53,11 +55,11 @@ const Login = () => {
                 })
             });
             
-            const result = await res.json();
-            console.log("📡 Respuesta servidor fichaje:", result);
+            // Esperamos un momento para que la base de datos asiente el registro
+            await new Promise(resolve => setTimeout(resolve, 300));
             return true;
         } catch (err) {
-            console.error("❌ Error en registro de entrada:", err);
+            console.error("❌ Error en fichaje:", err);
             return false;
         }
     }
@@ -71,15 +73,15 @@ const Login = () => {
             const _rolMain = userData.roles?.find((el: any) => el.ismain === true)
 
             if (_rolMain) {
-                // 1. ESPERAMOS a que el fichaje termine
+                // 1. EJECUTAR Y ESPERAR
                 await ejecutarFichaje(userData, credentials.user);
 
-                // 2. Guardamos sesión
+                // 2. GUARDAR SESIÓN
                 await setUserData(userData)
                 await changeCurrentRol(_rolMain.id)
                 localStorage.setItem('idlogin', userData.id.toString())
                 
-                // 3. Redirigimos (ahora sí, después de que el fichaje se envió)
+                // 3. REDIRIGIR
                 window.location.href = '/' + _rolMain.id;
             }
         }

@@ -36,24 +36,26 @@ const UserState = (props: JSONObject) => {
     const localRolKey = 'current_rol'
     const [getCurrentRol, changeCurrentRol] = useLocalState<rolenum>(initialRolState, localRolKey)
 
-    // --- LOGOUT ASÍNCRONO PARA ESPERAR AL FICHAJE DE SALIDA ---
     const logout = async () => {
         const idUser = localStorage.getItem('idlogin');
         
         if (idUser && idUser !== 'undefined') {
             try {
                 console.log("👋 Registrando salida para usuario:", idUser);
+                // Usamos await para bloquear la limpieza hasta que el servidor reciba la orden
                 await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ idusuario: idUser })
                 });
+                // Pequeño retardo para asegurar que la petición voló
+                await new Promise(r => setTimeout(resolve, 200));
             } catch (e) {
                 console.error("Error al registrar salida");
             }
         }
 
-        // Limpiamos después de que la petición se haya enviado
+        // Limpieza y redirección
         setUserData(initialState);
         localStorage.clear();
         window.location.href = '/login';

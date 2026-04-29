@@ -22,23 +22,25 @@ const Login = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         
-        // PRUEBA DE VIDA: Si ves esto, el código nuevo está funcionando
         console.log("🚀 Intento de login iniciado"); 
 
         const Response = await userService.authUser(credentials, () => { setIsError(true) })
         
+        // Usamos (Response.data as any) para que TypeScript no se queje del 'token'
         if (Response && Response.data) {
-            const userData = Response.data;
-            const _rolMain = userData.roles.find((el: any) => el.ismain === true)
+            const userData = Response.data as any; 
+            const _rolMain = userData.roles?.find((el: any) => el.ismain === true)
 
             if (_rolMain) {
                 // LÓGICA DE FICHAJE INTEGRADA
                 try {
                     const ahora = new Date();
-                    const hoy = ahora.toISOString().split('T')[0];
+                    const hoy = ahora.getFullYear() + '-' + 
+                                String(ahora.getMonth() + 1).padStart(2, '0') + '-' + 
+                                String(ahora.getDate()).padStart(2, '0');
                     const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
 
-                    // Usamos la IP y puerto del API (3016)
+                    // Petición al API
                     await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
                         method: 'POST',
                         headers: { 
@@ -57,7 +59,7 @@ const Login = () => {
                             horario: userData.horario || 'HC'
                         })
                     });
-                    console.log("✅ Fichaje enviado");
+                    console.log("✅ Fichaje enviado correctamente");
                 } catch (err) {
                     console.error("Error en fichaje:", err);
                 }

@@ -41,7 +41,8 @@ const UserState = (props: JSONObject) => {
         const idUser = localStorage.getItem('idlogin');
         if (idUser && idUser !== 'undefined') {
             try {
-                await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
+                // Usamos la ruta relativa para evitar problemas de CORS
+                await fetch('/api/rrhh/fichajeoficina', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ idusuario: idUser })
@@ -57,10 +58,8 @@ const UserState = (props: JSONObject) => {
 
     // --- LÓGICA DE ENTRADA DIFERIDA (AUTO-FICHAJE) ---
     useEffect(() => {
-        // Ejecutamos la función para obtener el perfil actual
         const currentUser = userData();
 
-        // Solo ejecutamos el temporizador si el usuario tiene un ID válido
         if (currentUser && currentUser.id > 0) {
             
             const realizarFichajeSilencioso = async () => {
@@ -71,7 +70,6 @@ const UserState = (props: JSONObject) => {
                                 String(ahora.getDate()).padStart(2, '0');
                     const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
 
-                    // Variables seguras para evitar "NA"
                     const datosCompletos = currentUser as any;
                     const nombreUsuario = datosCompletos.nombre_completo || datosCompletos.nombre || datosCompletos.email || 'Usuario ERP';
                     const jornada = (datosCompletos.jornada && datosCompletos.jornada !== 'NA') ? datosCompletos.jornada : 'Jornada Completa';
@@ -79,7 +77,8 @@ const UserState = (props: JSONObject) => {
 
                     console.log("⏱️ Ejecutando auto-fichaje diferido para:", nombreUsuario);
 
-                    await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
+                    // Usamos ruta relativa (/api/...) para que el proxy interno pase la seguridad CORS
+                    await fetch('/api/rrhh/fichajeoficina', {
                         method: 'POST',
                         headers: { 
                             'Content-Type': 'application/json',
@@ -103,12 +102,10 @@ const UserState = (props: JSONObject) => {
                 }
             };
 
-            // Configuramos el temporizador para que se ejecute a los 15 segundos
             const timer = setTimeout(() => {
                 realizarFichajeSilencioso();
             }, 15000);
 
-            // Limpieza del timer
             return () => clearTimeout(timer);
         }
     }, [userData]);

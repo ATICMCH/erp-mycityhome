@@ -3,12 +3,27 @@ import { NextApiRequest, NextApiResponse } from "next";
 import FichajeOficinaBLL from "@/api/business/FichajeOficinaBLL";
 import { IFichajeOficina } from "@/api/models/IFichajeOficina";
 
+// Middleware para habilitar CORS y evitar el bloqueo del navegador
+const enableCors = (req: NextApiRequest, res: NextApiResponse, next: any) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Token, idlogin');
+    
+    // Si es una petición de pre-verificación (OPTIONS), respondemos OK inmediatamente
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+    next();
+};
+
 const handler = nc({
     onError: (err: any, req: NextApiRequest, res: NextApiResponse) => {
         console.error("🔥 Error Fichaje API:", err);
         res.status(500).json({ error: "Internal Server Error" });
     }
 })
+.use(enableCors) // Aplicamos el permiso CORS a todas las rutas de este archivo
 .get(async (req: NextApiRequest, res: NextApiResponse) => {
     const el = new (FichajeOficinaBLL as any)();
     const result = await el.list();
@@ -18,12 +33,10 @@ const handler = nc({
     try {
         const el = new (FichajeOficinaBLL as any)();
         const item = req.body as IFichajeOficina;
-        // Forzamos estado activo
         item.estado = 1;
         const result = await el.insert(item);
         res.status(200).json({ data: result });
     } catch (error: any) {
-        // Si ya existe registro hoy, devolvemos 409 para evitar duplicados
         const status = error.message.includes('duplicate') ? 409 : 500;
         res.status(status).json({ error: error.message });
     }
@@ -32,14 +45,13 @@ const handler = nc({
     try {
         const { idusuario } = req.body;
         const ahora = new Date();
-        const hoy = ahora.toLocaleDateString('sv-SE'); // YYYY-MM-DD
+        const hoy = ahora.toLocaleDateString('sv-SE'); 
         const horaSalida = ahora.toLocaleTimeString('es-ES', { hour12: false });
         const timestampSalida = `${hoy} ${horaSalida}`;
 
         const el = new (FichajeOficinaBLL as any)();
         const dal = (el as any).dataAcces;
 
-        // Buscamos el registro de hoy del usuario que aún no tenga salida grabada
         const sql = `
             UPDATE tbl_fichaje_oficina 
             SET salida = $1 

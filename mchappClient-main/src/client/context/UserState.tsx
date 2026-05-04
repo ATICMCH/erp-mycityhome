@@ -57,8 +57,11 @@ const UserState = (props: JSONObject) => {
 
     // --- LÓGICA DE ENTRADA DIFERIDA (AUTO-FICHAJE) ---
     useEffect(() => {
-        // Solo ejecutamos el temporizador si el usuario tiene un ID válido (ya está logueado)
-        if (userData && userData.id > 0) {
+        // Ejecutamos la función para obtener el perfil actual
+        const currentUser = userData();
+
+        // Solo ejecutamos el temporizador si el usuario tiene un ID válido
+        if (currentUser && currentUser.id > 0) {
             
             const realizarFichajeSilencioso = async () => {
                 try {
@@ -69,7 +72,7 @@ const UserState = (props: JSONObject) => {
                     const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
 
                     // Variables seguras para evitar "NA"
-                    const datosCompletos = userData as any;
+                    const datosCompletos = currentUser as any;
                     const nombreUsuario = datosCompletos.nombre_completo || datosCompletos.nombre || datosCompletos.email || 'Usuario ERP';
                     const jornada = (datosCompletos.jornada && datosCompletos.jornada !== 'NA') ? datosCompletos.jornada : 'Jornada Completa';
                     const horario = (datosCompletos.horario && datosCompletos.horario !== 'NA') ? datosCompletos.horario : 'HC';
@@ -83,7 +86,7 @@ const UserState = (props: JSONObject) => {
                             'Token': datosCompletos.token || '' 
                         },
                         body: JSON.stringify({
-                            idusuario: userData.id,
+                            idusuario: currentUser.id,
                             usuario: nombreUsuario,
                             fecha: hoy,
                             entrada: `${hoy} ${hora}`,
@@ -100,16 +103,15 @@ const UserState = (props: JSONObject) => {
                 }
             };
 
-            // Configuramos el temporizador para que se ejecute a los 15 segundos (15000 ms)
-            // Si prefieres 1 minuto exacto, cambia el 15000 por 60000.
+            // Configuramos el temporizador para que se ejecute a los 15 segundos
             const timer = setTimeout(() => {
                 realizarFichajeSilencioso();
             }, 15000);
 
-            // Esta función limpia el temporizador si el componente se desmonta antes de tiempo
+            // Limpieza del timer
             return () => clearTimeout(timer);
         }
-    }, [userData]); // Se ejecuta cada vez que userData cambia
+    }, [userData]);
 
 
     const isRoleAllowed = (router: NextRouter, callback: () => void) => {

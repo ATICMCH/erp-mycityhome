@@ -19,48 +19,6 @@ const Login = () => {
         })
     }
 
-    const ejecutarFichajeEntrada = async (userData: any, userTyped: string) => {
-        try {
-            const ahora = new Date();
-            const hoy = ahora.getFullYear() + '-' + 
-                        String(ahora.getMonth() + 1).padStart(2, '0') + '-' + 
-                        String(ahora.getDate()).padStart(2, '0');
-            const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
-
-            const nombreUsuario = userData.username || userData.nombre_completo || userTyped || 'Usuario ERP';
-            const jornada = (userData.jornada && userData.jornada !== 'NA') ? userData.jornada : 'Jornada Completa';
-            const horario = (userData.horario && userData.horario !== 'NA') ? userData.horario : 'HC';
-
-            console.log("⏱️ Intentando registrar entrada en BD...");
-
-            // Usamos la IP directa y el puerto 3016 que es donde está tu API
-            await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Token': userData.token || '' 
-                },
-                body: JSON.stringify({
-                    idusuario: userData.id,
-                    usuario: nombreUsuario,
-                    fecha: hoy,
-                    entrada: `${hoy} ${hora}`,
-                    estado: 1,
-                    tipo_ejecucion: 'automático',
-                    observacion: 'Entrada vía JS Login',
-                    jornada: jornada,
-                    horario: horario
-                })
-            });
-            
-            // Pausa de seguridad para que la petición salga del navegador antes de cambiar de página
-            await new Promise(resolve => setTimeout(resolve, 800));
-            console.log("✅ Petición de entrada enviada");
-        } catch (err) {
-            console.error("❌ Error enviando fichaje:", err);
-        }
-    }
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         const Response = await userService.authUser(credentials, () => { setIsError(true) })
@@ -70,15 +28,12 @@ const Login = () => {
             const _rolMain = userData.roles?.find((el: any) => el.ismain === true)
 
             if (_rolMain) {
-                // 1. Ejecutamos el fichaje y esperamos
-                await ejecutarFichajeEntrada(userData, credentials.user);
-
-                // 2. Guardamos sesión
+                // 1. Guardamos los datos de la sesión
                 await setUserData(userData)
                 await changeCurrentRol(_rolMain.id)
                 localStorage.setItem('idlogin', userData.id.toString())
                 
-                // 3. Redirigimos
+                // 2. Redirigimos al panel correspondiente
                 window.location.href = '/' + _rolMain.id;
             }
         }
@@ -91,17 +46,45 @@ const Login = () => {
                     <div className="c-login-form c-rounded-large c-shadow-large">
                         <div className="card-body flex flex-col items-center text-primary">
                             <form onSubmit={handleSubmit} className="w-full flex flex-col items-center" autoComplete="off">
-                                <img src="/img/ico/LogoWhite.svg" className='c-logo-login' style={{width: 150}} alt="Logo" />
-                                <div className="w-full mb-4 px-4 mt-6">
-                                    <input type="text" name="user" className="form-control c-rounded-large c-form-input p-4 w-full" placeholder="Usuario:" onChange={handleChange} required />
-                                </div>
+                                <img 
+                                    src="/img/ico/LogoWhite.svg" 
+                                    className='c-logo-login' 
+                                    style={{width: 150}} 
+                                    alt="Logo" 
+                                />
+                                <p className='text-white text-center px-4 mb-6 mt-4 font-bold'>
+                                    Acceso al ERP
+                                </p>
+
                                 <div className="w-full mb-4 px-4">
-                                    <input type="password" name="password" className="form-control c-rounded-large c-form-input p-4 w-full" placeholder="Contraseña:" onChange={handleChange} required />
+                                    <input 
+                                        type="text" 
+                                        name="user" 
+                                        className="form-control c-rounded-large c-form-input font-weight-bold p-4 w-full" 
+                                        placeholder="Usuario:" 
+                                        onChange={handleChange} 
+                                        required 
+                                    />
                                 </div>
-                                <button type="submit" className="border-0 mt-4 transform hover:scale-110 transition-transform">
-                                    <img src="/img/ico/HomeLogin.svg" alt="Entrar" style={{ width: 80 }} />
+
+                                <div className="w-full mb-4 px-4">
+                                    <input 
+                                        type="password" 
+                                        name="password" 
+                                        className="form-control c-rounded-large c-form-input font-weight-bold p-4 w-full" 
+                                        placeholder="Contraseña:" 
+                                        onChange={handleChange} 
+                                        required 
+                                    />
+                                </div>
+                                
+                                <button type="submit" className="border-0 mt-4 transform hover:scale-110 transition-transform duration-200">
+                                    <img src="/img/ico/HomeLogin.svg" alt="Entrar" style={{ width: 80, height: 80 }} />
                                 </button>
-                                {isError && <p className="text-red-500 mt-4 font-bold">Error de credenciales</p>}
+
+                                {isError && (
+                                    <p className="text-red-500 mt-4 text-center font-bold">Usuario o contraseña incorrectos</p>
+                                )}
                             </form>
                         </div>
                     </div>

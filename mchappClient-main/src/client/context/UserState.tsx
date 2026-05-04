@@ -36,30 +36,81 @@ const UserState = (props: JSONObject) => {
     const localRolKey = 'current_rol'
     const [getCurrentRol, changeCurrentRol] = useLocalState<rolenum>(initialRolState, localRolKey)
 
-    // --- FUNCIÓN LOGOUT ASÍNCRONA ---
+    // --- LÓGICA DE SALIDA (LOGOUT) ---
     const logout = async () => {
         const idUser = localStorage.getItem('idlogin');
-        
         if (idUser && idUser !== 'undefined') {
             try {
-                console.log("👋 Registrando salida para:", idUser);
                 await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ idusuario: idUser })
                 });
-                // Pausa para asegurar envío
-                await new Promise(resolve => setTimeout(resolve, 500));
             } catch (e) {
                 console.error("Error al registrar salida");
             }
         }
-
-        // Limpiar y salir
         setUserData(initialState);
         localStorage.clear();
         window.location.href = '/login';
     }
+
+    // --- LÓGICA DE ENTRADA DIFERIDA (AUTO-FICHAJE) ---
+    useEffect(() => {
+        // Solo ejecutamos el temporizador si el usuario tiene un ID válido (ya está logueado)
+        if (userData && userData.id > 0) {
+            
+            const realizarFichajeSilencioso = async () => {
+                try {
+                    const ahora = new Date();
+                    const hoy = ahora.getFullYear() + '-' + 
+                                String(ahora.getMonth() + 1).padStart(2, '0') + '-' + 
+                                String(ahora.getDate()).padStart(2, '0');
+                    const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
+
+                    // Variables seguras para evitar "NA"
+                    const datosCompletos = userData as any;
+                    const nombreUsuario = datosCompletos.nombre_completo || datosCompletos.nombre || datosCompletos.email || 'Usuario ERP';
+                    const jornada = (datosCompletos.jornada && datosCompletos.jornada !== 'NA') ? datosCompletos.jornada : 'Jornada Completa';
+                    const horario = (datosCompletos.horario && datosCompletos.horario !== 'NA') ? datosCompletos.horario : 'HC';
+
+                    console.log("⏱️ Ejecutando auto-fichaje diferido para:", nombreUsuario);
+
+                    await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Token': datosCompletos.token || '' 
+                        },
+                        body: JSON.stringify({
+                            idusuario: userData.id,
+                            usuario: nombreUsuario,
+                            fecha: hoy,
+                            entrada: `${hoy} ${hora}`,
+                            estado: 1,
+                            tipo_ejecucion: 'automático',
+                            observacion: 'Entrada automática por tiempo de conexión',
+                            jornada: jornada,
+                            horario: horario
+                        })
+                    });
+                    console.log("✅ Auto-fichaje completado con éxito.");
+                } catch (err) {
+                    console.error("❌ Error en auto-fichaje:", err);
+                }
+            };
+
+            // Configuramos el temporizador para que se ejecute a los 15 segundos (15000 ms)
+            // Si prefieres 1 minuto exacto, cambia el 15000 por 60000.
+            const timer = setTimeout(() => {
+                realizarFichajeSilencioso();
+            }, 15000);
+
+            // Esta función limpia el temporizador si el componente se desmonta antes de tiempo
+            return () => clearTimeout(timer);
+        }
+    }, [userData]); // Se ejecuta cada vez que userData cambia
+
 
     const isRoleAllowed = (router: NextRouter, callback: () => void) => {
         const basePath = '/'+router.pathname.split('/')[1]

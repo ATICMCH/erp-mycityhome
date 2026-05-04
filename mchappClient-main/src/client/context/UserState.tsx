@@ -41,16 +41,19 @@ const UserState = (props: JSONObject) => {
         const idUser = localStorage.getItem('idlogin');
         if (idUser && idUser !== 'undefined') {
             try {
-                // Usamos la ruta relativa para evitar CORS
-                await fetch('/api/rrhh/fichajeoficina', {
+                // Registrar salida apuntando al backend
+                const res = await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ idusuario: idUser })
                 });
+                // Obligar a que termine la petición antes de limpiar caché
+                await res.json();
             } catch (e) {
                 console.error("Error al registrar salida");
             }
         }
+        
         setUserData(initialState);
         localStorage.clear();
         window.location.href = '/login';

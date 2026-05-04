@@ -3,27 +3,28 @@ import { NextApiRequest, NextApiResponse } from "next";
 import FichajeOficinaBLL from "@/api/business/FichajeOficinaBLL";
 import { IFichajeOficina } from "@/api/models/IFichajeOficina";
 
-// Middleware para habilitar CORS y evitar el bloqueo del navegador
-const enableCors = (req: NextApiRequest, res: NextApiResponse, next: any) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+const handler = nc({
+    onError: (err: any, req: NextApiRequest, res: NextApiResponse) => {
+        console.error("🔥 Error Fichaje API:", err);
+        res.status(500).json({ error: "Internal Server Error" });
+    },
+    onNoMatch: (req: NextApiRequest, res: NextApiResponse) => {
+        res.status(404).end("Page is not found");
+    }
+})
+// Middleware CORS MUY ESTRICTO Y DIRECTO
+.use(async (req: NextApiRequest, res: NextApiResponse, next: any) => {
+    res.setHeader('Access-Control-Allow-Origin', '*'); // Permite cualquier origen (3018, localhost, etc)
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Token, idlogin');
+    res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization, Token, idlogin');
     
-    // Si es una petición de pre-verificación (OPTIONS), respondemos OK inmediatamente
+    // Si es una petición OPTIONS, respondemos inmediatamente y NO ejecutamos los siguientes pasos
     if (req.method === 'OPTIONS') {
         res.status(200).end();
         return;
     }
     next();
-};
-
-const handler = nc({
-    onError: (err: any, req: NextApiRequest, res: NextApiResponse) => {
-        console.error("🔥 Error Fichaje API:", err);
-        res.status(500).json({ error: "Internal Server Error" });
-    }
 })
-.use(enableCors) // Aplicamos el permiso CORS a todas las rutas de este archivo
 .get(async (req: NextApiRequest, res: NextApiResponse) => {
     const el = new (FichajeOficinaBLL as any)();
     const result = await el.list();

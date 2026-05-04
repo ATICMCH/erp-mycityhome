@@ -29,34 +29,31 @@ const handler = nc({
     next();
 })
 .get(async (req: NextApiRequest, res: NextApiResponse) => {
+    // Usamos SQL directo para evitar el error de list is not a function
     const el = new (FichajeOficinaBLL as any)();
-    const result = await el.list();
-    res.status(200).json({ data: result });
+    const dal = (el as any).dataAcces;
+    const result = await dal.execQueryPool('SELECT * FROM tbl_fichaje_oficina ORDER BY id DESC');
+    res.status(200).json({ data: Array.isArray(result) ? result : (result?.rows || []) });
 })
 .post(async (req: NextApiRequest, res: NextApiResponse) => {
     try {
         const el = new (FichajeOficinaBLL as any)();
+        const dal = (el as any).dataAcces;
         const item = req.body; 
         item.estado = 1;
         
         // 1. VALIDACIÓN ANTI-DUPLICADOS (Una sola entrada al día)
-        // Usamos el método nativo el.list() que sabemos que no falla
-        const todosLosFichajes = await el.list();
-        
-        // Buscamos si ya hay un registro de este usuario en la fecha actual
-        const existe = todosLosFichajes.find((f: any) => 
-            f.idusuario === item.idusuario && 
-            f.fecha === item.fecha
-        );
+        const sqlCheck = `SELECT id FROM tbl_fichaje_oficina WHERE idusuario = $1 AND fecha = $2`;
+        const check = await dal.execQueryPool(sqlCheck, [item.idusuario, item.fecha]);
+        const checkRows = Array.isArray(check) ? check : (check?.rows || []);
 
-        if (existe) {
+        if (checkRows.length > 0) {
             // Si ya fichó, bloqueamos la inserción y mandamos la advertencia al Chrome
             console.log(`⚠️ Intento duplicado bloqueado para: ${item.usuario}`);
             return res.status(409).json({ error: "El usuario ya ha registrado una entrada hoy." });
         }
 
         // 2. INSERCIÓN ORIGINAL
-        // Como tu BD ya acepta null, esto funcionará perfecto
         const result = await el.insert(item);
         
         console.log(`✅ Entrada grabada con éxito para: ${item.usuario}`);
@@ -76,21 +73,18 @@ const handler = nc({
         const timestampSalida = `${hoy} ${horaSalida}`;
 
         const el = new (FichajeOficinaBLL as any)();
+        const dal = (el as any).dataAcces;
         
         // 1. VALIDACIÓN PARA SALIDA
-        const todosLosFichajes = await el.list();
-        const registroAbierto = todosLosFichajes.find((f: any) => 
-            f.idusuario === idusuario && 
-            f.fecha === hoy && 
-            f.salida === null
-        );
+        const sqlCheck = `SELECT id FROM tbl_fichaje_oficina WHERE idusuario = $1 AND fecha = $2 AND salida IS NULL`;
+        const check = await dal.execQueryPool(sqlCheck, [idusuario, hoy]);
+        const checkRows = Array.isArray(check) ? check : (check?.rows || []);
 
-        if (!registroAbierto) {
+        if (checkRows.length === 0) {
             return res.status(400).json({ error: "No tienes una entrada abierta hoy o ya registraste tu salida." });
         }
 
-        // 2. ACTUALIZAMOS SALIDA (Tu código original que funcionaba)
-        const dal = (el as any).dataAcces;
+        // 2. ACTUALIZAMOS SALIDA 
         const sql = `
             UPDATE tbl_fichaje_oficina 
             SET salida = $1 

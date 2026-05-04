@@ -40,13 +40,19 @@ const handler = nc({
         
         // 1. VALIDACIÓN ANTI-DUPLICADOS
         const elRead = new (FichajeOficinaBLL as any)();
-        const todosLosFichajes: any = await elRead.get();
+        const responseRead: any = await elRead.get();
         
-        if (Array.isArray(todosLosFichajes)) {
-            const existe = todosLosFichajes.find((f: any) => 
-                f.idusuario == item.idusuario && 
-                f.fecha === item.fecha
-            );
+        // Ajustamos la lectura por si tu BLL devuelve { data: [...] } en lugar de [...]
+        const todosLosFichajes = Array.isArray(responseRead) ? responseRead : (responseRead?.data || []);
+        
+        if (todosLosFichajes.length > 0) {
+            const existe = todosLosFichajes.find((f: any) => {
+                // Convertimos la fecha de la BD a string y tomamos solo "YYYY-MM-DD"
+                const fechaBD = f.fecha ? String(f.fecha).substring(0, 10) : "";
+                const fechaItem = item.fecha ? String(item.fecha).substring(0, 10) : "";
+                
+                return f.idusuario == item.idusuario && fechaBD === fechaItem;
+            });
 
             if (existe) {
                 console.log(`⚠️ Intento duplicado bloqueado para: ${item.usuario}`);
@@ -68,13 +74,12 @@ const handler = nc({
             return res.status(200).json({ data: result });
 
         } catch (insertError: any) {
-            // AQUÍ NEUTRALIZAMOS EL BUG INTERNO DE TU LIBRERÍA
+            // Neutralizamos el bug de o.release
             if (insertError?.message?.includes('release is not a function')) {
                 console.log(`✅ Entrada grabada (ignorando bug de conexión) para: ${item.usuario}`);
-                // Devolvemos 200 OK porque sabemos que sí se guardó
                 return res.status(200).json({ data: "Entrada registrada exitosamente" });
             } else {
-                throw insertError; // Si es otro error real, lo lanzamos
+                throw insertError; 
             }
         }
 
@@ -87,20 +92,24 @@ const handler = nc({
     try {
         const { idusuario } = req.body;
         const ahora = new Date();
-        const hoy = ahora.toLocaleDateString('sv-SE'); 
+        // Usamos YYYY-MM-DD consistente
+        const hoy = ahora.getFullYear() + '-' + String(ahora.getMonth() + 1).padStart(2, '0') + '-' + String(ahora.getDate()).padStart(2, '0');
         const horaSalida = ahora.toLocaleTimeString('es-ES', { hour12: false });
         const timestampSalida = `${hoy} ${horaSalida}`;
 
         // 1. VALIDACIÓN PARA SALIDA
         const elRead = new (FichajeOficinaBLL as any)(); 
-        const todosLosFichajes: any = await elRead.get();
+        const responseRead: any = await elRead.get();
+        const todosLosFichajes = Array.isArray(responseRead) ? responseRead : (responseRead?.data || []);
         
-        if (Array.isArray(todosLosFichajes)) {
-            const registroAbierto = todosLosFichajes.find((f: any) => 
-                f.idusuario == idusuario && 
-                f.fecha === hoy && 
-                f.salida === null
-            );
+        if (todosLosFichajes.length > 0) {
+            const registroAbierto = todosLosFichajes.find((f: any) => {
+                const fechaBD = f.fecha ? String(f.fecha).substring(0, 10) : "";
+                
+                return f.idusuario == idusuario && 
+                       fechaBD === hoy && 
+                       (!f.salida || String(f.salida).trim() === '' || String(f.salida) === 'null'); // Abarca null, undefined o cadena vacía
+            });
 
             if (!registroAbierto) {
                 return res.status(400).json({ error: "No tienes una entrada abierta hoy o ya registraste tu salida." });
@@ -121,7 +130,6 @@ const handler = nc({
                 return res.status(200).json({ data: "Salida registrada con éxito" });
 
             } catch (updateError: any) {
-                // APLICAMOS LA MISMA PROTECCIÓN PARA LA SALIDA
                 if (updateError?.message?.includes('release is not a function')) {
                     console.log(`✅ Salida grabada (ignorando bug de conexión) para: ${idusuario}`);
                     return res.status(200).json({ data: "Salida registrada exitosamente" });
@@ -131,7 +139,7 @@ const handler = nc({
             }
 
         } else {
-             return res.status(500).json({ error: "Error al consultar los registros del usuario." });
+             return res.status(500).json({ error: "No se encontraron registros de fichaje para verificar." });
         }
 
     } catch (err: any) {

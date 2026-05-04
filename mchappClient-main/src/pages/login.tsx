@@ -19,51 +19,35 @@ const Login = () => {
         })
     }
 
-    const ejecutarFichaje = async (userData: any, userTyped: string) => {
-        try {
-            const ahora = new Date();
-            const hoy = ahora.getFullYear() + '-' + 
-                        String(ahora.getMonth() + 1).padStart(2, '0') + '-' + 
-                        String(ahora.getDate()).padStart(2, '0');
-            const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
+    const ejecutarFichajeEntrada = (userData: any, userTyped: string) => {
+        const ahora = new Date();
+        const hoy = ahora.getFullYear() + '-' + 
+                    String(ahora.getMonth() + 1).padStart(2, '0') + '-' + 
+                    String(ahora.getDate()).padStart(2, '0');
+        const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
 
-            // Prioridad de nombre: 1. Nombre completo, 2. Username, 3. Lo que escribió en el input
-            const nombreUsuario = userData.nombre_completo || userData.username || userTyped || 'Usuario ERP';
-            
-            // Limpieza para evitar "NA"
-            const jornada = (userData.jornada && userData.jornada !== 'NA') ? userData.jornada : 'Jornada Completa';
-            const horario = (userData.horario && userData.horario !== 'NA') ? userData.horario : 'HC';
+        const nombreUsuario = userData.nombre_completo || userData.username || userTyped || 'Usuario ERP';
+        const jornada = (userData.jornada && userData.jornada !== 'NA') ? userData.jornada : 'Jornada Completa';
+        const horario = (userData.horario && userData.horario !== 'NA') ? userData.horario : 'HC';
 
-            console.log("⏱️ Registrando entrada para:", nombreUsuario);
+        const url = 'http://185.252.233.57:3016/api/rrhh/fichajeoficina';
+        
+        const data = JSON.stringify({
+            idusuario: userData.id,
+            usuario: nombreUsuario,
+            fecha: hoy,
+            entrada: `${hoy} ${hora}`,
+            estado: 1,
+            tipo_ejecucion: 'automático',
+            observacion: 'Fichaje Beacon Login',
+            jornada: jornada,
+            horario: horario
+        });
 
-            const res = await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Token': userData.token || '' 
-                },
-                body: JSON.stringify({
-                    idusuario: userData.id,
-                    usuario: nombreUsuario,
-                    fecha: hoy,
-                    entrada: `${hoy} ${hora}`,
-                    estado: 1,
-                    tipo_ejecucion: 'automático',
-                    observacion: 'Fichaje automático Login Web',
-                    jornada: jornada,
-                    horario: horario
-                })
-            });
-            
-            // Esperamos a que la petición termine realmente
-            await res.json();
-            // Pequeña pausa extra para asegurar la escritura en DB antes de navegar
-            await new Promise(resolve => setTimeout(resolve, 500));
-            return true;
-        } catch (err) {
-            console.error("❌ Error en registro de entrada:", err);
-            return false;
-        }
+        // sendBeacon garantiza que la petición llegue a la BD aunque la página cambie
+        const blob = new Blob([data], { type: 'application/json' });
+        navigator.sendBeacon(url, blob);
+        console.log("🚀 Fichaje enviado vía Beacon para:", nombreUsuario);
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -75,15 +59,15 @@ const Login = () => {
             const _rolMain = userData.roles?.find((el: any) => el.ismain === true)
 
             if (_rolMain) {
-                // 1. Ejecutamos fichaje y ESPERAMOS que termine
-                await ejecutarFichaje(userData, credentials.user);
+                // 1. Registramos el fichaje (No hace falta await con sendBeacon)
+                ejecutarFichajeEntrada(userData, credentials.user);
 
                 // 2. Guardamos sesión
                 await setUserData(userData)
                 await changeCurrentRol(_rolMain.id)
                 localStorage.setItem('idlogin', userData.id.toString())
                 
-                // 3. Redirigimos
+                // 3. Redirigimos inmediatamente
                 window.location.href = '/' + _rolMain.id;
             }
         }

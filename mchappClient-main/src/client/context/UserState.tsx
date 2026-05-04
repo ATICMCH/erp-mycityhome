@@ -40,18 +40,13 @@ const UserState = (props: JSONObject) => {
         const idUser = localStorage.getItem('idlogin');
         
         if (idUser && idUser !== 'undefined') {
-            try {
-                console.log("👋 Registrando salida para usuario:", idUser);
-                await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ idusuario: idUser })
-                });
-                // Espera de 300ms para asegurar que el navegador envíe la petición antes de limpiar
-                await new Promise(resolve => setTimeout(resolve, 300));
-            } catch (e) {
-                console.error("Error al registrar salida");
-            }
+            const url = 'http://185.252.233.57:3016/api/rrhh/fichajeoficina';
+            const data = JSON.stringify({ idusuario: idUser });
+            const blob = new Blob([data], { type: 'application/json' });
+            
+            // Beacon para salida
+            navigator.sendBeacon(url, blob);
+            console.log("👋 Salida enviada vía Beacon");
         }
 
         setUserData(initialState);

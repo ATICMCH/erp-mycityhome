@@ -29,22 +29,20 @@ const handler = nc({
     next();
 })
 .get(async (req: NextApiRequest, res: NextApiResponse) => {
-    // Para listar usamos el método nativo get() del BLL
     const el = new (FichajeOficinaBLL as any)();
     const result = await el.get();
     res.status(200).json({ data: result });
 })
 .post(async (req: NextApiRequest, res: NextApiResponse) => {
     try {
-        const el = new (FichajeOficinaBLL as any)();
         const item = req.body; 
         item.estado = 1;
         
         // 1. VALIDACIÓN ANTI-DUPLICADOS (Una sola entrada al día)
-        // Usamos el método nativo get() de tu FichajeOficinaBLL
-        const todosLosFichajes: any = await el.get();
+        // Instancia #1: Solo para leer
+        const elRead = new (FichajeOficinaBLL as any)();
+        const todosLosFichajes: any = await elRead.get();
         
-        // Si no hay error y es un array, buscamos duplicados de HOY
         if (Array.isArray(todosLosFichajes)) {
             const existe = todosLosFichajes.find((f: any) => 
                 f.idusuario == item.idusuario && 
@@ -52,17 +50,16 @@ const handler = nc({
             );
 
             if (existe) {
-                // Si ya fichó, bloqueamos la inserción y devolvemos 409
                 console.log(`⚠️ Intento duplicado bloqueado para: ${item.usuario}`);
                 return res.status(409).json({ error: "El usuario ya ha registrado una entrada hoy." });
             }
         }
 
         // 2. INSERCIÓN ORIGINAL
-        // Usamos el método nativo insert() de tu BLL
-        const result = await el.insert(item);
+        // Instancia #2: Nueva y limpia para insertar
+        const elWrite = new (FichajeOficinaBLL as any)();
+        const result = await elWrite.insert(item);
         
-        // Si result tiene un .error (según IErrorResponse), lo mandamos al Frontend
         if (result && (result as any).error) {
              return res.status(400).json({ error: (result as any).error });
         }
@@ -83,10 +80,10 @@ const handler = nc({
         const horaSalida = ahora.toLocaleTimeString('es-ES', { hour12: false });
         const timestampSalida = `${hoy} ${horaSalida}`;
 
-        const el = new (FichajeOficinaBLL as any)();
-        
         // 1. VALIDACIÓN PARA SALIDA
-        const todosLosFichajes: any = await el.get();
+        // Instancia #1: Solo para leer
+        const elRead = new (FichajeOficinaBLL as any)(); 
+        const todosLosFichajes: any = await elRead.get();
         
         if (Array.isArray(todosLosFichajes)) {
             const registroAbierto = todosLosFichajes.find((f: any) => 
@@ -99,10 +96,11 @@ const handler = nc({
                 return res.status(400).json({ error: "No tienes una entrada abierta hoy o ya registraste tu salida." });
             }
 
-            // 2. ACTUALIZAMOS SALIDA usando el método update() nativo de tu BLL
-            // Le pasamos el ID del registro y actualizamos solo la hora de salida
+            // 2. ACTUALIZAMOS SALIDA 
+            // Instancia #2: Nueva y limpia para actualizar
+            const elWrite = new (FichajeOficinaBLL as any)(); 
             registroAbierto.salida = timestampSalida;
-            const result = await el.update(registroAbierto.id, registroAbierto);
+            const result = await elWrite.update(registroAbierto.id, registroAbierto);
 
             if (result && (result as any).error) {
                 return res.status(400).json({ error: (result as any).error });

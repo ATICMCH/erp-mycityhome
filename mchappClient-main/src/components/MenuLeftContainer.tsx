@@ -7,6 +7,8 @@ import { api } from '../client/helpers/Util'
 import Link from 'next/link'
 import WebMCH24 from "./webMCH24"
 import FilterInstance from "@/client/helpers/Filter"
+// 1. IMPORTAMOS EL NUEVO COMPONENTE DE FICHAJE
+import FichajeBoton from "./FichajeBoton"
 
 const MenuLeftContainer = ({ data, itemSelected }: { data: Array<MenuLeftType>, itemSelected: string }) => {
     const router = useRouter()
@@ -14,7 +16,7 @@ const MenuLeftContainer = ({ data, itemSelected }: { data: Array<MenuLeftType>, 
     const [isOpen, setIsOpen] = useState(false)
 
     const handleExit = async () => {
-    const response = await api.get('/api/auth/logout')
+        const response = await api.get('/api/auth/logout')
         changeCurrentRol('')
         setUserData('')
         localStorage.removeItem('idlogin')
@@ -52,7 +54,7 @@ const MenuLeftContainer = ({ data, itemSelected }: { data: Array<MenuLeftType>, 
                 ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
                 shadow-lg overflow-hidden
             `}>
-                <div className="h-full overflow-y-auto py-2">
+                <div className="h-full overflow-y-auto py-2 flex flex-col justify-between">
                     <div className="grid grid-cols-1 lg:grid-cols-1 gap-1">
                         {data.sort(el => el.order).map((item) => {
                             item.isActive = item.key === itemSelected
@@ -64,16 +66,24 @@ const MenuLeftContainer = ({ data, itemSelected }: { data: Array<MenuLeftType>, 
                         })}
                     </div>
                     
-                    <Link 
-                        onClick={handleExit} 
-                        key="ml-exit" 
-                        href="#" 
-                        className="link-menu c-bg-primary mt-2 rounded-lg flex flex-col items-center px-1 transform scale-90 lg:scale-100"
-                        style={{ height: '4rem' }}
-                    >
-                        <WebMCH24 color="white" />
-                        <h3 className="text-white text-xs lg:text-sm">Salir</h3>
-                    </Link>
+                    {/* Contenedor inferior para botones de acción */}
+                    <div className="mt-4 pb-4">
+                        {/* 2. AGREGAMOS LOS BOTONES DE FICHAJE AQUÍ */}
+                        <div className="mb-4 w-full flex justify-center">
+                            <FichajeBoton />
+                        </div>
+
+                        <Link 
+                            onClick={handleExit} 
+                            key="ml-exit" 
+                            href="#" 
+                            className="link-menu c-bg-primary mt-2 rounded-lg flex flex-col items-center px-1 transform scale-90 lg:scale-100"
+                            style={{ height: '4rem' }}
+                        >
+                            <WebMCH24 color="white" />
+                            <h3 className="text-white text-xs lg:text-sm">Salir</h3>
+                        </Link>
+                    </div>
                 </div>
             </div>
         </>

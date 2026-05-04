@@ -36,22 +36,7 @@ const UserState = (props: JSONObject) => {
     const localRolKey = 'current_rol'
     const [getCurrentRol, changeCurrentRol] = useLocalState<rolenum>(initialRolState, localRolKey)
 
-    // --- LÓGICA DE SALIDA (LOGOUT) APUNTANDO A LA API (3016) ---
     const logout = async () => {
-        const idUser = localStorage.getItem('idlogin');
-        if (idUser && idUser !== 'undefined') {
-            try {
-                // Apuntamos al Backend (3016)
-                await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ idusuario: idUser })
-                });
-                await new Promise(resolve => setTimeout(resolve, 300));
-            } catch (e) {
-                console.error("Error al registrar salida");
-            }
-        }
         setUserData(initialState);
         localStorage.clear();
         window.location.href = '/login';

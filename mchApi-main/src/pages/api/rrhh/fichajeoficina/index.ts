@@ -9,21 +9,25 @@ const handler = nc({
         res.status(500).json({ error: "Internal Server Error" });
     },
     onNoMatch: (req: NextApiRequest, res: NextApiResponse) => {
+        // En caso de preflight OPTIONS que no haga match, forzamos un OK para CORS
+        if (req.method === 'OPTIONS') {
+            res.status(200).end();
+            return;
+        }
         res.status(404).end("Page is not found");
     }
 })
-// Configuración de CORS estricta y directa
-.use(async (req: NextApiRequest, res: NextApiResponse, next: any) => {
+// 1. INYECTAMOS CABECERAS EN CUALQUIER TIPO DE PETICIÓN
+.use((req: NextApiRequest, res: NextApiResponse, next: any) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Token, idlogin');
+    res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization, Token, idlogin');
     
-    // Si la petición es OPTIONS (Preflight de CORS), la detenemos aquí y respondemos OK
+    // 2. RESPONDEMOS AL PREFLIGHT DE CHROME INMEDIATAMENTE
     if (req.method === 'OPTIONS') {
         res.status(200).end();
         return;
     }
-    
     next();
 })
 .get(async (req: NextApiRequest, res: NextApiResponse) => {
@@ -67,5 +71,14 @@ const handler = nc({
         res.status(500).json({ error: err.message });
     }
 });
+
+// Forzar a Next.js a no parsear el body en OPTIONS (ayuda con CORS)
+export const config = {
+    api: {
+        bodyParser: {
+            sizeLimit: '1mb',
+        },
+    },
+};
 
 export default handler;

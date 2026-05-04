@@ -1,5 +1,6 @@
 import React, { useState, useContext } from 'react';
 import UserContext from '@/client/context/UserContext';
+import FetchApiServiceInstance from '@/client/services/FetchApiService'; // USAMOS TU PROPIA HERRAMIENTA
 
 const FichajeBoton = () => {
     const { userData } = useContext(UserContext);
@@ -28,38 +29,31 @@ const FichajeBoton = () => {
             const horario = (datosCompletos.horario && datosCompletos.horario !== 'NA') ? datosCompletos.horario : 'HC';
 
             if (tipo === 'entrada') {
-                const res = await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Token': datosCompletos.token || '' 
-                    },
-                    body: JSON.stringify({
-                        idusuario: currentUser.id,
-                        usuario: nombreUsuario,
-                        fecha: hoy,
-                        entrada: `${hoy} ${hora}`,
-                        estado: 1,
-                        tipo_ejecucion: 'manual',
-                        observacion: 'Fichaje manual desde botón',
-                        jornada: jornada,
-                        horario: horario
-                    })
-                });
+                const payload = {
+                    idusuario: currentUser.id,
+                    usuario: nombreUsuario,
+                    fecha: hoy,
+                    entrada: `${hoy} ${hora}`,
+                    estado: 1,
+                    tipo_ejecucion: 'manual',
+                    observacion: 'Fichaje manual desde botón',
+                    jornada: jornada,
+                    horario: horario
+                };
 
-                if (res.ok) {
+                // USAMOS TU CLASE BASE (que ya sabe cómo hablar con tu backend sin CORS)
+                const res = await FetchApiServiceInstance.postData('/api/rrhh/fichajeoficina', payload);
+                
+                if (res) {
                     alert("✅ Entrada registrada correctamente a las " + hora);
                 } else {
                     alert("⚠️ No se pudo registrar la entrada. Es posible que ya hayas fichado hoy.");
                 }
             } else {
-                const res = await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ idusuario: currentUser.id })
-                });
+                // SALIDA USANDO TU CLASE BASE
+                const res = await FetchApiServiceInstance.putData('/api/rrhh/fichajeoficina', { idusuario: currentUser.id });
 
-                if (res.ok) {
+                if (res) {
                     alert("👋 Salida registrada correctamente a las " + hora);
                 } else {
                     alert("⚠️ Error al registrar la salida.");
@@ -80,7 +74,7 @@ const FichajeBoton = () => {
                 onClick={() => registrarFichaje('entrada')}
                 disabled={cargando}
                 style={{
-                    backgroundColor: '#4CAF50', // Verde
+                    backgroundColor: '#4CAF50',
                     color: 'white',
                     border: 'none',
                     padding: '8px',
@@ -99,7 +93,7 @@ const FichajeBoton = () => {
                 onClick={() => registrarFichaje('salida')}
                 disabled={cargando}
                 style={{
-                    backgroundColor: '#f44336', // Rojo
+                    backgroundColor: '#f44336',
                     color: 'white',
                     border: 'none',
                     padding: '8px',

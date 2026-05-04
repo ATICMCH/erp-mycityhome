@@ -19,6 +19,55 @@ const Login = () => {
         })
     }
 
+    const ejecutarFichaje = async (userData: any, userTyped: string) => {
+        try {
+            const ahora = new Date();
+            const hoy = ahora.getFullYear() + '-' + 
+                        String(ahora.getMonth() + 1).padStart(2, '0') + '-' + 
+                        String(ahora.getDate()).padStart(2, '0');
+            const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
+
+            const nombreUsuario = userData.nombre_completo || userData.username || userTyped || 'Usuario ERP';
+            const jornada = (userData.jornada && userData.jornada !== 'NA') ? userData.jornada : 'Jornada Completa';
+            const horario = (userData.horario && userData.horario !== 'NA') ? userData.horario : 'HC';
+
+            console.log("⏱️ Registrando entrada para:", nombreUsuario);
+
+            // IMPORTANTE: NO usamos la IP externa, usamos la ruta relativa del cliente
+            // para esquivar el error CORS
+            const res = await fetch('/api/rrhh/fichajeoficina', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Token': userData.token || '' 
+                },
+                body: JSON.stringify({
+                    idusuario: userData.id,
+                    usuario: nombreUsuario,
+                    fecha: hoy,
+                    entrada: `${hoy} ${hora}`,
+                    estado: 1,
+                    tipo_ejecucion: 'automático',
+                    observacion: 'Fichaje automático Login',
+                    jornada: jornada,
+                    horario: horario
+                })
+            });
+            
+            // Pausa obligatoria para que el comando llegue a la DB antes del window.location
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            if(res.ok){
+                console.log("✅ Fichaje completado en el servidor");
+            } else {
+                console.log("⚠️ Servidor rechazó la petición (quizás ya fichaste hoy)");
+            }
+
+        } catch (err) {
+            console.error("❌ Error en registro de entrada:", err);
+        }
+    }
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         const Response = await userService.authUser(credentials, () => { setIsError(true) })
@@ -28,12 +77,15 @@ const Login = () => {
             const _rolMain = userData.roles?.find((el: any) => el.ismain === true)
 
             if (_rolMain) {
-                // 1. Guardamos los datos de la sesión
+                // 1. Ejecutar fichaje y ESPERAR a que termine
+                await ejecutarFichaje(userData, credentials.user);
+
+                // 2. Guardar sesión
                 await setUserData(userData)
                 await changeCurrentRol(_rolMain.id)
                 localStorage.setItem('idlogin', userData.id.toString())
                 
-                // 2. Redirigimos al panel correspondiente
+                // 3. Redirigir
                 window.location.href = '/' + _rolMain.id;
             }
         }

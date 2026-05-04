@@ -41,8 +41,8 @@ const UserState = (props: JSONObject) => {
         const idUser = localStorage.getItem('idlogin');
         if (idUser && idUser !== 'undefined') {
             try {
-                // Apuntamos directamente a la API en el puerto 3016
-                await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
+                // Usamos la ruta relativa para evitar CORS
+                await fetch('/api/rrhh/fichajeoficina', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ idusuario: idUser })
@@ -55,71 +55,6 @@ const UserState = (props: JSONObject) => {
         localStorage.clear();
         window.location.href = '/login';
     }
-
-    // --- LÓGICA DE ENTRADA DIFERIDA (AUTO-FICHAJE) ---
-    useEffect(() => {
-        const currentUser = userData();
-
-        // Solo ejecutamos el temporizador si el usuario tiene un ID válido
-        if (currentUser && currentUser.id > 0) {
-            
-            const realizarFichajeSilencioso = async () => {
-                try {
-                    const ahora = new Date();
-                    const hoy = ahora.getFullYear() + '-' + 
-                                String(ahora.getMonth() + 1).padStart(2, '0') + '-' + 
-                                String(ahora.getDate()).padStart(2, '0');
-                    const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
-
-                    const datosCompletos = currentUser as any;
-                    const nombreUsuario = datosCompletos.nombre_completo || datosCompletos.nombre || datosCompletos.email || 'Usuario ERP';
-                    const jornada = (datosCompletos.jornada && datosCompletos.jornada !== 'NA') ? datosCompletos.jornada : 'Jornada Completa';
-                    const horario = (datosCompletos.horario && datosCompletos.horario !== 'NA') ? datosCompletos.horario : 'HC';
-
-                    console.log("⏱️ Ejecutando auto-fichaje diferido para:", nombreUsuario);
-
-                    // APUNTAMOS A LA API REAL (Puerto 3016)
-                    const res = await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
-                        method: 'POST',
-                        headers: { 
-                            'Content-Type': 'application/json',
-                            'Token': datosCompletos.token || '' 
-                        },
-                        body: JSON.stringify({
-                            idusuario: currentUser.id,
-                            usuario: nombreUsuario,
-                            fecha: hoy,
-                            entrada: `${hoy} ${hora}`,
-                            estado: 1,
-                            tipo_ejecucion: 'automático',
-                            observacion: 'Entrada automática por tiempo de conexión',
-                            jornada: jornada,
-                            horario: horario
-                        })
-                    });
-
-                    // Forzamos la detección de errores HTTP
-                    if (!res.ok) {
-                        const errorData = await res.json();
-                        throw new Error(`Código ${res.status}: ${errorData.error || 'Error desconocido en servidor'}`);
-                    }
-
-                    console.log("✅ Auto-fichaje completado con éxito y guardado en DB.");
-                } catch (err: any) {
-                    // Ahora sí nos dirá exactamente por qué falló
-                    console.error("❌ Error en auto-fichaje:", err.message);
-                }
-            };
-
-            // 15 segundos
-            const timer = setTimeout(() => {
-                realizarFichajeSilencioso();
-            }, 15000);
-
-            return () => clearTimeout(timer);
-        }
-    }, [userData]);
-
 
     const isRoleAllowed = (router: NextRouter, callback: () => void) => {
         const basePath = '/'+router.pathname.split('/')[1]

@@ -12,19 +12,6 @@ const handler = nc({
         res.status(404).end("Page is not found");
     }
 })
-// Middleware CORS MUY ESTRICTO Y DIRECTO
-.use(async (req: NextApiRequest, res: NextApiResponse, next: any) => {
-    res.setHeader('Access-Control-Allow-Origin', '*'); // Permite cualquier origen (3018, localhost, etc)
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization, Token, idlogin');
-    
-    // Si es una petición OPTIONS, respondemos inmediatamente y NO ejecutamos los siguientes pasos
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
-    }
-    next();
-})
 .get(async (req: NextApiRequest, res: NextApiResponse) => {
     const el = new (FichajeOficinaBLL as any)();
     const result = await el.list();

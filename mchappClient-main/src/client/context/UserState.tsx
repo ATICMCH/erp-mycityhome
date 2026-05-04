@@ -41,8 +41,8 @@ const UserState = (props: JSONObject) => {
         const idUser = localStorage.getItem('idlogin');
         if (idUser && idUser !== 'undefined') {
             try {
-                // Usamos la ruta relativa para evitar problemas de CORS
-                await fetch('/api/rrhh/fichajeoficina', {
+                // Apuntamos directamente a la API en el puerto 3016
+                await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ idusuario: idUser })
@@ -60,6 +60,7 @@ const UserState = (props: JSONObject) => {
     useEffect(() => {
         const currentUser = userData();
 
+        // Solo ejecutamos el temporizador si el usuario tiene un ID válido
         if (currentUser && currentUser.id > 0) {
             
             const realizarFichajeSilencioso = async () => {
@@ -77,8 +78,8 @@ const UserState = (props: JSONObject) => {
 
                     console.log("⏱️ Ejecutando auto-fichaje diferido para:", nombreUsuario);
 
-                    // Usamos ruta relativa (/api/...) para que el proxy interno pase la seguridad CORS
-                    await fetch('/api/rrhh/fichajeoficina', {
+                    // APUNTAMOS A LA API REAL (Puerto 3016)
+                    const res = await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
                         method: 'POST',
                         headers: { 
                             'Content-Type': 'application/json',
@@ -96,12 +97,21 @@ const UserState = (props: JSONObject) => {
                             horario: horario
                         })
                     });
-                    console.log("✅ Auto-fichaje completado con éxito.");
-                } catch (err) {
-                    console.error("❌ Error en auto-fichaje:", err);
+
+                    // Forzamos la detección de errores HTTP
+                    if (!res.ok) {
+                        const errorData = await res.json();
+                        throw new Error(`Código ${res.status}: ${errorData.error || 'Error desconocido en servidor'}`);
+                    }
+
+                    console.log("✅ Auto-fichaje completado con éxito y guardado en DB.");
+                } catch (err: any) {
+                    // Ahora sí nos dirá exactamente por qué falló
+                    console.error("❌ Error en auto-fichaje:", err.message);
                 }
             };
 
+            // 15 segundos
             const timer = setTimeout(() => {
                 realizarFichajeSilencioso();
             }, 15000);

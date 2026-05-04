@@ -36,19 +36,26 @@ const UserState = (props: JSONObject) => {
     const localRolKey = 'current_rol'
     const [getCurrentRol, changeCurrentRol] = useLocalState<rolenum>(initialRolState, localRolKey)
 
+    // --- FUNCIÓN LOGOUT ASÍNCRONA ---
     const logout = async () => {
         const idUser = localStorage.getItem('idlogin');
         
         if (idUser && idUser !== 'undefined') {
-            const url = 'http://185.252.233.57:3016/api/rrhh/fichajeoficina';
-            const data = JSON.stringify({ idusuario: idUser });
-            const blob = new Blob([data], { type: 'application/json' });
-            
-            // Beacon para salida
-            navigator.sendBeacon(url, blob);
-            console.log("👋 Salida enviada vía Beacon");
+            try {
+                console.log("👋 Registrando salida para:", idUser);
+                await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idusuario: idUser })
+                });
+                // Pausa para asegurar envío
+                await new Promise(resolve => setTimeout(resolve, 500));
+            } catch (e) {
+                console.error("Error al registrar salida");
+            }
         }
 
+        // Limpiar y salir
         setUserData(initialState);
         localStorage.clear();
         window.location.href = '/login';

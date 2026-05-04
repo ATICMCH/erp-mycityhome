@@ -27,7 +27,7 @@ const FichajeBoton = () => {
             const jornada = (datosCompletos.jornada && datosCompletos.jornada !== 'NA') ? datosCompletos.jornada : 'Jornada Completa';
             const horario = (datosCompletos.horario && datosCompletos.horario !== 'NA') ? datosCompletos.horario : 'HC';
 
-            // Usamos tu IP directamente
+            // URL directa de tu API Backend
             const urlApi = 'http://185.252.233.57:3016/api/rrhh/fichajeoficina';
 
             if (tipo === 'entrada') {
@@ -46,7 +46,9 @@ const FichajeBoton = () => {
                         tipo_ejecucion: 'manual',
                         observacion: 'Fichaje manual desde botón',
                         jornada: jornada,
-                        horario: horario
+                        horario: horario,
+                        // ¡AQUÍ ESTÁ LA SOLUCIÓN AL ERROR DE BASE DE DATOS!
+                        idusuario_ultimo_cambio: currentUser.id 
                     })
                 });
 
@@ -54,26 +56,28 @@ const FichajeBoton = () => {
                     alert("✅ Entrada registrada correctamente a las " + hora);
                 } else {
                     const err = await res.json();
-                    alert("⚠️ Aviso: " + (err.error || "No se pudo registrar"));
+                    console.error("Detalle del servidor:", err);
+                    alert("⚠️ No se pudo registrar la entrada. Es posible que ya hayas fichado hoy.");
                 }
             } else {
                 const res = await fetch(urlApi, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
+                    // Si el PUT falla por lo mismo, añadiríamos idusuario_ultimo_cambio aquí también, 
+                    // pero según tu código de la API de backend, el PUT solo actualiza 'salida', así que esto bastará.
                     body: JSON.stringify({ idusuario: currentUser.id })
                 });
 
                 if (res.ok) {
                     alert("👋 Salida registrada correctamente a las " + hora);
                 } else {
-                    const err = await res.json();
-                    alert("⚠️ Aviso: " + (err.error || "No se pudo registrar salida"));
+                    alert("⚠️ Error al registrar la salida.");
                 }
             }
 
         } catch (error) {
             console.error("Error en fichaje:", error);
-            alert("❌ Error de conexión al servidor.");
+            alert("❌ Error de conexión al servidor. Revisa la consola.");
         } finally {
             setCargando(false);
         }

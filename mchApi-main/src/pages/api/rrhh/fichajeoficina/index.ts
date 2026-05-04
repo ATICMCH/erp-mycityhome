@@ -37,21 +37,24 @@ const handler = nc({
     try {
         const { idusuario, usuario, fecha, entrada, tipo_ejecucion, observacion, jornada, horario } = req.body;
         
-        // 1. Instanciamos el BLL y sacamos el DAL para usar consultas crudas (evita el bug de o.release)
+        // 1. Instanciamos el BLL y sacamos el DAL para usar consultas SQL crudas 
+        // (esto asegura que enviemos los campos exactos sin que nada los borre)
         const el = new (FichajeOficinaBLL as any)();
         const dal = (el as any).dataAcces;
 
         // 2. COMPROBACIÓN DE DUPLICADOS: Evita múltiples fichajes el mismo día
         const sqlCheck = `SELECT id FROM tbl_fichaje_oficina WHERE idusuario = $1 AND fecha = $2`;
-        // Usamos execQuery en lugar de execQueryPool para evitar el error de release()
-        const check = await dal.execQuery(sqlCheck, [idusuario, fecha]);
+        const check = await dal.execQueryPool(sqlCheck, [idusuario, fecha]);
         
-        if (check && check.length > 0) {
-            // Si ya hay un registro, detenemos todo y devolvemos 409
+        // Manejamos la respuesta de forma segura dependiendo de si tu BD devuelve un array directo o un objeto con "rows"
+        const checkRows = Array.isArray(check) ? check : (check?.rows || []);
+
+        if (checkRows.length > 0) {
+            // Si ya hay un registro, detenemos todo con elegancia y devolvemos 409
             return res.status(409).json({ error: "El usuario ya ha registrado una entrada hoy." });
         }
 
-        // 3. INSERCIÓN: Si no existe, lo creamos
+        // 3. INSERCIÓN: Si no existe, creamos el registro
         const sqlInsert = `
             INSERT INTO tbl_fichaje_oficina 
             (idusuario, usuario, fecha, entrada, estado, tipo_ejecucion, observacion, jornada, horario, idusuario_ultimo_cambio)
@@ -59,7 +62,7 @@ const handler = nc({
             RETURNING id
         `;
         
-        await dal.execQuery(sqlInsert, [
+        await dal.execQueryPool(sqlInsert, [
             idusuario, 
             usuario, 
             fecha, 
@@ -69,7 +72,7 @@ const handler = nc({
             observacion || 'Fichaje desde botón', 
             jornada, 
             horario, 
-            idusuario 
+            idusuario // Obligatorio para que PostgreSQL no lance el error de NULL
         ]);
 
         console.log(`✅ Entrada grabada con éxito para: ${usuario}`);
@@ -93,19 +96,21 @@ const handler = nc({
 
         // 1. Verificamos si existe el registro de hoy y NO tiene salida aún
         const sqlCheck = `SELECT id FROM tbl_fichaje_oficina WHERE idusuario = $1 AND fecha = $2 AND salida IS NULL`;
-        const check = await dal.execQuery(sqlCheck, [idusuario, hoy]);
+        const check = await dal.execQueryPool(sqlCheck, [idusuario, hoy]);
+        
+        const checkRows = Array.isArray(check) ? check : (check?.rows || []);
 
-        if (!check || check.length === 0) {
+        if (checkRows.length === 0) {
             return res.status(400).json({ error: "No tienes una entrada abierta hoy o ya registraste tu salida." });
         }
 
-        // 2. Actualizamos la salida (usando execQuery para evitar o.release)
+        // 2. Actualizamos la salida
         const sqlUpdate = `
             UPDATE tbl_fichaje_oficina 
             SET salida = $1, idusuario_ultimo_cambio = $2 
             WHERE idusuario = $3 AND fecha = $4 AND salida IS NULL`;
         
-        await dal.execQuery(sqlUpdate, [timestampSalida, idusuario, idusuario, hoy]);
+        await dal.execQueryPool(sqlUpdate, [timestampSalida, idusuario, idusuario, hoy]);
         
         console.log(`✅ Salida grabada para usuario ${idusuario} a las ${horaSalida}`);
         res.status(200).json({ data: "Salida registrada con éxito" });

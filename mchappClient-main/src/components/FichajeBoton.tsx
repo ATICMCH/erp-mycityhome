@@ -1,6 +1,5 @@
 import React, { useState, useContext } from 'react';
 import UserContext from '@/client/context/UserContext';
-import FetchApiServiceInstance from '@/client/services/FetchApiService'; // USAMOS TU PROPIA HERRAMIENTA
 
 const FichajeBoton = () => {
     const { userData } = useContext(UserContext);
@@ -28,32 +27,42 @@ const FichajeBoton = () => {
             const jornada = (datosCompletos.jornada && datosCompletos.jornada !== 'NA') ? datosCompletos.jornada : 'Jornada Completa';
             const horario = (datosCompletos.horario && datosCompletos.horario !== 'NA') ? datosCompletos.horario : 'HC';
 
-            if (tipo === 'entrada') {
-                const payload = {
-                    idusuario: currentUser.id,
-                    usuario: nombreUsuario,
-                    fecha: hoy,
-                    entrada: `${hoy} ${hora}`,
-                    estado: 1,
-                    tipo_ejecucion: 'manual',
-                    observacion: 'Fichaje manual desde botón',
-                    jornada: jornada,
-                    horario: horario
-                };
+            // URL directa de tu API Backend
+            const urlApi = 'http://185.252.233.57:3016/api/rrhh/fichajeoficina';
 
-                // USAMOS TU CLASE BASE (que ya sabe cómo hablar con tu backend sin CORS)
-                const res = await FetchApiServiceInstance.postData('/api/rrhh/fichajeoficina', payload);
-                
-                if (res) {
+            if (tipo === 'entrada') {
+                const res = await fetch(urlApi, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Token': datosCompletos.token || '' 
+                    },
+                    body: JSON.stringify({
+                        idusuario: currentUser.id,
+                        usuario: nombreUsuario,
+                        fecha: hoy,
+                        entrada: `${hoy} ${hora}`,
+                        estado: 1,
+                        tipo_ejecucion: 'manual',
+                        observacion: 'Fichaje manual desde botón',
+                        jornada: jornada,
+                        horario: horario
+                    })
+                });
+
+                if (res.ok) {
                     alert("✅ Entrada registrada correctamente a las " + hora);
                 } else {
                     alert("⚠️ No se pudo registrar la entrada. Es posible que ya hayas fichado hoy.");
                 }
             } else {
-                // SALIDA USANDO TU CLASE BASE
-                const res = await FetchApiServiceInstance.putData('/api/rrhh/fichajeoficina', { idusuario: currentUser.id });
+                const res = await fetch(urlApi, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idusuario: currentUser.id })
+                });
 
-                if (res) {
+                if (res.ok) {
                     alert("👋 Salida registrada correctamente a las " + hora);
                 } else {
                     alert("⚠️ Error al registrar la salida.");

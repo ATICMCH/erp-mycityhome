@@ -27,13 +27,13 @@ const Login = () => {
                         String(ahora.getDate()).padStart(2, '0');
             const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
 
-            const nombreUsuario = userData.nombre_completo || userData.username || userTyped || 'Usuario ERP';
+            const nombreUsuario = userData.username || userData.nombre_completo || userTyped || 'Usuario ERP';
             const jornada = (userData.jornada && userData.jornada !== 'NA') ? userData.jornada : 'Jornada Completa';
             const horario = (userData.horario && userData.horario !== 'NA') ? userData.horario : 'HC';
 
-            console.log("⏱️ Registrando entrada en BD para:", nombreUsuario);
+            console.log("⏱️ Registrando entrada en API (3016) para:", nombreUsuario);
 
-            // Fetch a la URL absoluta
+            // APUNTAMOS AL BACKEND DIRECTAMENTE (3016)
             const res = await fetch('http://185.252.233.57:3016/api/rrhh/fichajeoficina', {
                 method: 'POST',
                 headers: { 
@@ -47,20 +47,23 @@ const Login = () => {
                     entrada: `${hoy} ${hora}`,
                     estado: 1,
                     tipo_ejecucion: 'automático',
-                    observacion: 'Fichaje automático Login Web',
+                    observacion: 'Fichaje automático Login',
                     jornada: jornada,
                     horario: horario
                 })
             });
             
-            // Obligamos al navegador a esperar que el servidor responda algo antes de avanzar
-            const result = await res.json();
-            console.log("✅ Fichaje completado:", result);
+            // Pausa obligatoria para que el comando llegue a la DB
+            await new Promise(resolve => setTimeout(resolve, 800));
             
-            return true;
+            if(res.ok){
+                console.log("✅ Fichaje completado en el servidor");
+            } else {
+                console.log("⚠️ Servidor rechazó la petición (quizás ya fichaste hoy)");
+            }
+
         } catch (err) {
             console.error("❌ Error en registro de entrada:", err);
-            return false;
         }
     }
 
@@ -73,7 +76,7 @@ const Login = () => {
             const _rolMain = userData.roles?.find((el: any) => el.ismain === true)
 
             if (_rolMain) {
-                // 1. Ejecutar fichaje y ESPERAR obligatoriamente
+                // 1. Ejecutar fichaje y ESPERAR a que termine
                 await ejecutarFichaje(userData, credentials.user);
 
                 // 2. Guardar sesión
@@ -81,7 +84,7 @@ const Login = () => {
                 await changeCurrentRol(_rolMain.id)
                 localStorage.setItem('idlogin', userData.id.toString())
                 
-                // 3. Redirigir al dashboard (ya con el fichaje guardado)
+                // 3. Redirigir
                 window.location.href = '/' + _rolMain.id;
             }
         }

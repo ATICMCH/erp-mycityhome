@@ -12,6 +12,20 @@ const handler = nc({
         res.status(404).end("Page is not found");
     }
 })
+// Configuración de CORS estricta y directa
+.use(async (req: NextApiRequest, res: NextApiResponse, next: any) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Token, idlogin');
+    
+    // Si la petición es OPTIONS (Preflight de CORS), la detenemos aquí y respondemos OK
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+    
+    next();
+})
 .get(async (req: NextApiRequest, res: NextApiResponse) => {
     const el = new (FichajeOficinaBLL as any)();
     const result = await el.list();

@@ -36,29 +36,32 @@ const handler = nc({
     try {
         const item = req.body;
         const idUser = BigInt(item.idusuario);
+        const hoy = item.fecha; // El formato que viene del front: YYYY-MM-DD
         
-        // 1. Instancia para lectura
         const elRead = new (FichajeOficinaBLL as any)(idUser, 0, false);
         const response: any = await elRead.get();
+        
+        // CORRECCIÓN: Extraer la lista correctamente si viene envuelta en {data: []}
         const lista = Array.isArray(response) ? response : (response?.data || []);
 
-        // 2. Validación de duplicado hoy
-        const hoy = item.fecha; // YYYY-MM-DD
+        // VALIDACIÓN ROBUSTA: Convertimos todo a String para comparar
         const yaExiste = lista.find((f: any) => 
             String(f.idusuario) === String(item.idusuario) && 
             String(f.fecha).includes(hoy)
         );
 
         if (yaExiste) {
-            return res.status(409).json({ error: "Ya has fichado la entrada hoy." });
+            return res.status(409).json({ error: "Ya has registrado tu entrada el día de hoy." });
         }
 
-        // 3. Inserción
         const elWrite = new (FichajeOficinaBLL as any)(idUser, 0, false);
         try {
+            // Aseguramos el campo obligatorio de auditoría
+            item.idusuario_ultimo_cambio = item.idusuario;
             await elWrite.insert(item);
-            return res.status(200).json({ data: "Entrada registrada" });
+            return res.status(200).json({ data: "Entrada registrada correctamente" });
         } catch (e: any) {
+            // Si el error es solo por la liberación de conexión, lo damos como bueno
             if (e.message.includes('release')) return res.status(200).json({ data: "Entrada registrada" });
             throw e;
         }
@@ -71,33 +74,34 @@ const handler = nc({
         const { idusuario } = req.body;
         const idUser = BigInt(idusuario);
         const ahora = new Date();
-        const hoy = ahora.toISOString().split('T')[0]; // YYYY-MM-DD
+        // Generamos la fecha de hoy en formato YYYY-MM-DD local
+        const hoy = ahora.getFullYear() + '-' + String(ahora.getMonth() + 1).padStart(2, '0') + '-' + String(ahora.getDate()).padStart(2, '0');
         const horaSalida = ahora.toLocaleTimeString('es-ES', { hour12: false });
 
-        // 1. Buscar el registro abierto de hoy
         const elRead = new (FichajeOficinaBLL as any)(idUser, 0, false);
         const response: any = await elRead.get();
         const lista = Array.isArray(response) ? response : (response?.data || []);
 
-        // Buscamos el registro de este usuario, de hoy, que NO tenga salida
+        // BUSCAR EL REGISTRO ABIERTO (Sin salida)
         const registro = lista.find((f: any) => 
             String(f.idusuario) === String(idusuario) && 
             String(f.fecha).includes(hoy) &&
-            (f.salida === null || f.salida === undefined || f.salida === '')
+            (f.salida === null || f.salida === undefined || String(f.salida).trim() === '' || String(f.salida) === 'null')
         );
 
         if (!registro) {
-            return res.status(400).json({ error: "No se encontró una entrada abierta para hoy." });
+            return res.status(400).json({ error: "No se encontró una entrada abierta para hoy o ya registraste tu salida." });
         }
 
-        // 2. Actualizar salida
         const elWrite = new (FichajeOficinaBLL as any)(idUser, 0, false);
+        // Actualizamos los campos necesarios
         registro.salida = `${hoy} ${horaSalida}`;
         registro.idusuario_ultimo_cambio = idusuario;
 
         try {
+            // El update suele requerir el ID y el objeto completo
             await elWrite.update(BigInt(registro.id), registro);
-            return res.status(200).json({ data: "Salida registrada" });
+            return res.status(200).json({ data: "Salida registrada correctamente" });
         } catch (e: any) {
             if (e.message.includes('release')) return res.status(200).json({ data: "Salida registrada" });
             throw e;

@@ -6,74 +6,41 @@ const FichajeBoton = () => {
     const [cargando, setCargando] = useState(false);
     const urlApi = 'http://185.252.233.57:3016/api/rrhh/fichajeoficina';
 
-    const registrarFichaje = async (tipo: 'entrada' | 'salida') => {
-        const currentUser = typeof userData === 'function' ? userData() : userData;
-        if (!currentUser?.id) return alert("Sesión no encontrada");
+    const registrar = async (tipo: 'entrada' | 'salida') => {
+        const user = typeof userData === 'function' ? userData() : userData;
+        if (!user?.id) return alert("Error: Usuario no identificado");
 
         setCargando(true);
         try {
             const ahora = new Date();
             const hoy = ahora.toISOString().split('T')[0];
-            const horaActual = ahora.toLocaleTimeString('es-ES', { hour12: false });
-            const timestamp = `${hoy} ${horaActual}`;
+            const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
+            const ts = `${hoy} ${hora}`;
 
-            // --- LÓGICA DE ENTRADA ---
-            if (tipo === 'entrada') {
-                const res = await fetch(urlApi, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        idusuario: currentUser.id,
-                        usuario: currentUser.nombre_completo || 'Usuario',
-                        fecha: hoy,
-                        entrada: timestamp,
-                        estado: 1,
-                        tipo_ejecucion: 'manual',
-                        jornada: currentUser.jornada || 'Jornada Completa',
-                        horario: currentUser.horario || 'HC',
-                        idusuario_ultimo_cambio: currentUser.id
-                    })
-                });
-                if (res.ok) alert("✅ Entrada registrada: " + horaActual);
-                else alert("⚠️ Ya existe un fichaje hoy.");
-            } 
-            
-            // --- LÓGICA DE SALIDA (NUEVA) ---
-            else {
-                // 1. Obtener todos los registros para buscar el nuestro
-                const respGet = await fetch(urlApi);
-                const jsonGet = await respGet.json();
-                const lista = Array.isArray(jsonGet.data) ? jsonGet.data : [];
+            const res = await fetch(urlApi, {
+                method: tipo === 'entrada' ? 'POST' : 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    idusuario: user.id,
+                    usuario: user.nombre_completo || user.nombre || 'Usuario',
+                    fecha: hoy,
+                    [tipo]: ts, // Enviará 'entrada' o 'salida' según el botón
+                    idusuario_ultimo_cambio: user.id,
+                    estado: 1,
+                    tipo_ejecucion: 'manual',
+                    jornada: user.jornada || 'Jornada Completa',
+                    horario: user.horario || 'HC'
+                })
+            });
 
-                // 2. Buscar el registro abierto de hoy para este usuario
-                const registroAbierto = lista.find((f: any) => 
-                    String(f.idusuario) === String(currentUser.id) && 
-                    String(f.fecha).includes(hoy) && 
-                    (f.salida === null || f.salida === '')
-                );
-
-                if (!registroAbierto) {
-                    alert("⚠️ No tienes una entrada abierta hoy.");
-                    setCargando(false);
-                    return;
-                }
-
-                // 3. Enviamos el objeto completo con la salida actualizada
-                const resPut = await fetch(urlApi, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        ...registroAbierto,
-                        salida: timestamp,
-                        idusuario_ultimo_cambio: currentUser.id
-                    })
-                });
-
-                if (resPut.ok) alert("👋 Salida registrada: " + horaActual);
-                else alert("❌ Error al procesar la salida.");
+            const data = await res.json();
+            if (res.ok) {
+                alert(`✅ ${tipo.toUpperCase()} registrada: ${hora}`);
+            } else {
+                alert(`⚠️ ${data.error || 'Error en el proceso'}`);
             }
-        } catch (error) {
-            alert("❌ Error de conexión.");
+        } catch (e) {
+            alert("❌ Error de conexión");
         } finally {
             setCargando(false);
         }
@@ -81,10 +48,10 @@ const FichajeBoton = () => {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <button onClick={() => registrarFichaje('entrada')} disabled={cargando} style={{ backgroundColor: '#4CAF50', color: 'white', padding: '10px', borderRadius: '8px', cursor: 'pointer' }}>
+            <button onClick={() => registrar('entrada')} disabled={cargando} style={{ backgroundColor: '#4CAF50', color: 'white', padding: '10px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                 {cargando ? '...' : '✅ Entrar'}
             </button>
-            <button onClick={() => registrarFichaje('salida')} disabled={cargando} style={{ backgroundColor: '#f44336', color: 'white', padding: '10px', borderRadius: '8px', cursor: 'pointer' }}>
+            <button onClick={() => registrar('salida')} disabled={cargando} style={{ backgroundColor: '#f44336', color: 'white', padding: '10px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                 {cargando ? '...' : '👋 Salir'}
             </button>
         </div>

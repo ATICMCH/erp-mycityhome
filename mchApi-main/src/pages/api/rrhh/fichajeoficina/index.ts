@@ -11,35 +11,33 @@ const setCorsHeaders = (res: NextApiResponse) => {
 const handler = nc({
     onError: (err: any, req: NextApiRequest, res: NextApiResponse) => {
         setCorsHeaders(res);
-        res.status(500).json({ error: err?.message || "Error interno del servidor" });
+        res.status(500).json({ error: err?.message || "Error" });
     }
 })
-.options((req: NextApiRequest, res: NextApiResponse) => {
-    setCorsHeaders(res);
-    res.status(200).end();
-})
-.use((req: NextApiRequest, res: NextApiResponse, next: any) => {
-    setCorsHeaders(res);
-    next();
-})
+.options((req, res) => { setCorsHeaders(res); res.status(200).end(); })
+.use((req, res, next) => { setCorsHeaders(res); next(); })
 .post(async (req: NextApiRequest, res: NextApiResponse) => {
     try {
         const item = req.body;
-        const bll = new (FichajeOficinaBLL as any)(BigInt(item.idusuario), 0, false);
-        
-        // 1. Validar duplicados hoy (Consultamos la tabla directamente)
-        const sqlCheck = `SELECT id FROM tbl_fichaje_oficina WHERE idusuario = $1 AND fecha = $2`;
-        const existResult = await bll.dataAcces.execQueryPool(sqlCheck, [item.idusuario, item.fecha]);
-        const exists = Array.isArray(existResult) ? existResult : (existResult?.rows || []);
+        const idUser = BigInt(item.idusuario);
+        const hoy = item.fecha;
 
-        if (exists.length > 0) {
-            return res.status(409).json({ error: "Ya has fichado la entrada hoy." });
-        }
+        // 1. Instancia para leer
+        const elRead = new (FichajeOficinaBLL as any)(idUser, 0, false);
+        const resp: any = await elRead.get();
+        const lista = Array.isArray(resp) ? resp : (resp?.data || []);
 
-        // 2. Insertar
-        item.idusuario_ultimo_cambio = item.idusuario;
+        // VALIDACIÓN ANTI-DUPLICADOS
+        const existe = lista.find((f: any) => 
+            String(f.idusuario) === String(item.idusuario) && String(f.fecha).includes(hoy)
+        );
+
+        if (existe) return res.status(409).json({ error: "Ya has fichado hoy." });
+
+        // 2. Instancia para insertar
+        const elWrite = new (FichajeOficinaBLL as any)(idUser, 0, false);
         try {
-            await bll.insert(item);
+            await elWrite.insert(item);
             return res.status(200).json({ data: "Entrada OK" });
         } catch (e: any) {
             if (e.message.includes('release')) return res.status(200).json({ data: "Entrada OK" });
@@ -52,28 +50,36 @@ const handler = nc({
 .put(async (req: NextApiRequest, res: NextApiResponse) => {
     try {
         const { idusuario } = req.body;
+        const idUser = BigInt(idusuario);
         const ahora = new Date();
         const hoy = ahora.toISOString().split('T')[0];
         const horaSalida = ahora.toLocaleTimeString('es-ES', { hour12: false });
-        
-        const bll = new (FichajeOficinaBLL as any)(BigInt(idusuario), 0, false);
 
-        // 1. Buscar registro abierto de hoy
-        const sqlFind = `SELECT * FROM tbl_fichaje_oficina WHERE idusuario = $1 AND fecha = $2 AND (salida IS NULL OR salida = '') LIMIT 1`;
-        const findResult = await bll.dataAcces.execQueryPool(sqlFind, [idusuario, hoy]);
-        const rows = Array.isArray(findResult) ? findResult : (findResult?.rows || []);
+        // 1. Buscar registro abierto
+        const elRead = new (FichajeOficinaBLL as any)(idUser, 0, false);
+        const resp: any = await elRead.get();
+        const lista = Array.isArray(resp) ? resp : (resp?.data || []);
 
-        if (rows.length === 0) {
-            return res.status(400).json({ error: "No tienes una entrada abierta hoy." });
+        const registro = lista.find((f: any) => 
+            String(f.idusuario) === String(idusuario) && 
+            String(f.fecha).includes(hoy) &&
+            (!f.salida || String(f.salida).trim() === '' || String(f.salida) === 'null')
+        );
+
+        if (!registro) return res.status(400).json({ error: "No hay entrada abierta hoy." });
+
+        // 2. Preparar objeto para UPDATE
+        // TRUCO: Clonamos el objeto y forzamos el idusuario correcto para que el BLL no lo cambie a 1
+        const datosUpdate = { ...registro, salida: `${hoy} ${horaSalida}`, idusuario: idusuario };
+
+        const elWrite = new (FichajeOficinaBLL as any)(idUser, 0, false);
+        try {
+            await elWrite.update(BigInt(registro.id), datosUpdate);
+            return res.status(200).json({ data: "Salida OK" });
+        } catch (e: any) {
+            if (e.message.includes('release')) return res.status(200).json({ data: "Salida OK" });
+            throw e;
         }
-
-        const registro = rows[0];
-
-        // 2. Actualizar salida usando SQL directo para evitar que el BLL cambie el idusuario a 1
-        const sqlUpdate = `UPDATE tbl_fichaje_oficina SET salida = $1, idusuario_ultimo_cambio = $2 WHERE id = $3`;
-        await bll.dataAcces.execQueryPool(sqlUpdate, [`${hoy} ${horaSalida}`, idusuario, registro.id]);
-
-        return res.status(200).json({ data: "Salida OK" });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }

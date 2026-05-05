@@ -29,7 +29,7 @@ const handler = nc({
     next();
 })
 .get(async (req: NextApiRequest, res: NextApiResponse) => {
-    const el = new (FichajeOficinaBLL as any)();
+    const el = new (FichajeOficinaBLL as any)(BigInt(1), 0, false);
     const result = await el.get();
     res.status(200).json({ data: result });
 })
@@ -37,21 +37,23 @@ const handler = nc({
     try {
         const item = req.body; 
         item.estado = 1;
+        item.idusuario_ultimo_cambio = item.idusuario;
         
-        // 1. VALIDACIÓN ANTI-DUPLICADOS
-        const elRead = new (FichajeOficinaBLL as any)();
+        // Formateamos el ID para que la clase no de error
+        const idUser = item.idusuario ? BigInt(item.idusuario) : BigInt(1);
+        
+        // 1. VALIDACIÓN ANTI-DUPLICADOS (Una sola entrada al día)
+        // INICIALIZAMOS CON LOS PARÁMETROS OBLIGATORIOS DE TU CLASE
+        const elRead = new (FichajeOficinaBLL as any)(idUser, 0, false);
         const responseRead: any = await elRead.get();
         
-        // Ajustamos la lectura por si tu BLL devuelve { data: [...] } en lugar de [...]
         const todosLosFichajes = Array.isArray(responseRead) ? responseRead : (responseRead?.data || []);
         
         if (todosLosFichajes.length > 0) {
             const existe = todosLosFichajes.find((f: any) => {
-                // Convertimos la fecha de la BD a string y tomamos solo "YYYY-MM-DD"
                 const fechaBD = f.fecha ? String(f.fecha).substring(0, 10) : "";
                 const fechaItem = item.fecha ? String(item.fecha).substring(0, 10) : "";
-                
-                return f.idusuario == item.idusuario && fechaBD === fechaItem;
+                return String(f.idusuario) === String(item.idusuario) && fechaBD === fechaItem;
             });
 
             if (existe) {
@@ -61,7 +63,7 @@ const handler = nc({
         }
 
         // 2. INSERCIÓN
-        const elWrite = new (FichajeOficinaBLL as any)();
+        const elWrite = new (FichajeOficinaBLL as any)(idUser, 0, false);
         
         try {
             const result = await elWrite.insert(item);
@@ -91,14 +93,15 @@ const handler = nc({
 .put(async (req: NextApiRequest, res: NextApiResponse) => {
     try {
         const { idusuario } = req.body;
+        const idUser = idusuario ? BigInt(idusuario) : BigInt(1);
+        
         const ahora = new Date();
-        // Usamos YYYY-MM-DD consistente
         const hoy = ahora.getFullYear() + '-' + String(ahora.getMonth() + 1).padStart(2, '0') + '-' + String(ahora.getDate()).padStart(2, '0');
         const horaSalida = ahora.toLocaleTimeString('es-ES', { hour12: false });
         const timestampSalida = `${hoy} ${horaSalida}`;
 
-        // 1. VALIDACIÓN PARA SALIDA
-        const elRead = new (FichajeOficinaBLL as any)(); 
+        // 1. VALIDACIÓN PARA SALIDA CON LOS PARÁMETROS OBLIGATORIOS
+        const elRead = new (FichajeOficinaBLL as any)(idUser, 0, false); 
         const responseRead: any = await elRead.get();
         const todosLosFichajes = Array.isArray(responseRead) ? responseRead : (responseRead?.data || []);
         
@@ -106,21 +109,23 @@ const handler = nc({
             const registroAbierto = todosLosFichajes.find((f: any) => {
                 const fechaBD = f.fecha ? String(f.fecha).substring(0, 10) : "";
                 
-                return f.idusuario == idusuario && 
+                return String(f.idusuario) === String(idusuario) && 
                        fechaBD === hoy && 
-                       (!f.salida || String(f.salida).trim() === '' || String(f.salida) === 'null'); // Abarca null, undefined o cadena vacía
+                       (!f.salida || String(f.salida).trim() === '' || String(f.salida) === 'null');
             });
 
             if (!registroAbierto) {
                 return res.status(400).json({ error: "No tienes una entrada abierta hoy o ya registraste tu salida." });
             }
 
-            // 2. ACTUALIZAMOS SALIDA 
-            const elWrite = new (FichajeOficinaBLL as any)(); 
+            // 2. ACTUALIZAMOS SALIDA (USANDO TU MÉTODO UPDATE NATIVO)
+            const elWrite = new (FichajeOficinaBLL as any)(idUser, 0, false); 
             registroAbierto.salida = timestampSalida;
+            registroAbierto.idusuario_ultimo_cambio = idusuario;
             
             try {
-                const result = await elWrite.update(registroAbierto.id, registroAbierto);
+                // Pasamos el id como BigInt como exige tu BLL
+                const result = await elWrite.update(BigInt(registroAbierto.id), registroAbierto);
 
                 if (result && (result as any).error) {
                     return res.status(400).json({ error: (result as any).error });
@@ -130,6 +135,7 @@ const handler = nc({
                 return res.status(200).json({ data: "Salida registrada con éxito" });
 
             } catch (updateError: any) {
+                // Neutralizamos el bug de o.release en la salida también
                 if (updateError?.message?.includes('release is not a function')) {
                     console.log(`✅ Salida grabada (ignorando bug de conexión) para: ${idusuario}`);
                     return res.status(200).json({ data: "Salida registrada exitosamente" });

@@ -45,6 +45,10 @@ class FichajeOficinaBLL implements IDataAccess<IFichajeOficina> {
                                             new Promise<IErrorResponse>((resolve, reject) => { resolve(error) })
     }
 
+    async getFichajes(): Promise<Array<IFichajeOficina> | IErrorResponse> {
+    return this.dataAcces.getFichajes();
+}
+
     async update(id: BigInt, data: IFichajeOficina): Promise<IFichajeOficina | IErrorResponse> {
         let error: IErrorResponse = { error: 'Error, integridad de datos', data:[] }
 

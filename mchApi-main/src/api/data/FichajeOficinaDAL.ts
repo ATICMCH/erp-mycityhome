@@ -39,6 +39,21 @@ class FichajeOficinaDAL implements IDataAccess<IFichajeOficina> {
         return lData as Array<IFichajeOficina>;
     }
 
+    async getFichajes(): Promise<Array<IFichajeOficina> | IErrorResponse> {
+    const queryData = {
+        name: 'get-fichajes-oficina-real',
+        text: ` SELECT fo.*
+                FROM ${Constants.tbl_fichaje_oficina_sql} fo
+                WHERE fo.estado = 1
+                ORDER BY fo.id DESC
+                LIMIT 100`,
+        values: []
+    };
+
+    let lData = await this.client.exeQuery(queryData) as Array<IFichajeOficina>;
+    return lData;
+}
+
     async getById(id: BigInt): Promise<IFichajeOficina | IErrorResponse> {
         const queryData = {
             name: 'get-fichajeoficina-x-id',

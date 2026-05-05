@@ -11,12 +11,7 @@ const setCorsHeaders = (res: NextApiResponse) => {
 const handler = nc({
     onError: (err: any, req: NextApiRequest, res: NextApiResponse) => {
         setCorsHeaders(res);
-        console.error("🔥 Error Fichaje API:", err);
-        res.status(500).json({ error: err?.message || "Internal Server Error" });
-    },
-    onNoMatch: (req: NextApiRequest, res: NextApiResponse) => {
-        setCorsHeaders(res);
-        res.status(404).end("Page is not found");
+        res.status(500).json({ error: err?.message || "Error interno del servidor" });
     }
 })
 .options((req: NextApiRequest, res: NextApiResponse) => {
@@ -27,42 +22,27 @@ const handler = nc({
     setCorsHeaders(res);
     next();
 })
-.get(async (req: NextApiRequest, res: NextApiResponse) => {
-    const el = new (FichajeOficinaBLL as any)(BigInt(1), 0, false);
-    const result = await el.get();
-    res.status(200).json({ data: result });
-})
 .post(async (req: NextApiRequest, res: NextApiResponse) => {
     try {
         const item = req.body;
-        const idUser = BigInt(item.idusuario);
-        const hoy = item.fecha; // El formato que viene del front: YYYY-MM-DD
+        const bll = new (FichajeOficinaBLL as any)(BigInt(item.idusuario), 0, false);
         
-        const elRead = new (FichajeOficinaBLL as any)(idUser, 0, false);
-        const response: any = await elRead.get();
-        
-        // CORRECCIÓN: Extraer la lista correctamente si viene envuelta en {data: []}
-        const lista = Array.isArray(response) ? response : (response?.data || []);
+        // 1. Validar duplicados hoy (Consultamos la tabla directamente)
+        const sqlCheck = `SELECT id FROM tbl_fichaje_oficina WHERE idusuario = $1 AND fecha = $2`;
+        const existResult = await bll.dataAcces.execQueryPool(sqlCheck, [item.idusuario, item.fecha]);
+        const exists = Array.isArray(existResult) ? existResult : (existResult?.rows || []);
 
-        // VALIDACIÓN ROBUSTA: Convertimos todo a String para comparar
-        const yaExiste = lista.find((f: any) => 
-            String(f.idusuario) === String(item.idusuario) && 
-            String(f.fecha).includes(hoy)
-        );
-
-        if (yaExiste) {
-            return res.status(409).json({ error: "Ya has registrado tu entrada el día de hoy." });
+        if (exists.length > 0) {
+            return res.status(409).json({ error: "Ya has fichado la entrada hoy." });
         }
 
-        const elWrite = new (FichajeOficinaBLL as any)(idUser, 0, false);
+        // 2. Insertar
+        item.idusuario_ultimo_cambio = item.idusuario;
         try {
-            // Aseguramos el campo obligatorio de auditoría
-            item.idusuario_ultimo_cambio = item.idusuario;
-            await elWrite.insert(item);
-            return res.status(200).json({ data: "Entrada registrada correctamente" });
+            await bll.insert(item);
+            return res.status(200).json({ data: "Entrada OK" });
         } catch (e: any) {
-            // Si el error es solo por la liberación de conexión, lo damos como bueno
-            if (e.message.includes('release')) return res.status(200).json({ data: "Entrada registrada" });
+            if (e.message.includes('release')) return res.status(200).json({ data: "Entrada OK" });
             throw e;
         }
     } catch (error: any) {
@@ -72,44 +52,31 @@ const handler = nc({
 .put(async (req: NextApiRequest, res: NextApiResponse) => {
     try {
         const { idusuario } = req.body;
-        const idUser = BigInt(idusuario);
         const ahora = new Date();
-        // Generamos la fecha de hoy en formato YYYY-MM-DD local
-        const hoy = ahora.getFullYear() + '-' + String(ahora.getMonth() + 1).padStart(2, '0') + '-' + String(ahora.getDate()).padStart(2, '0');
+        const hoy = ahora.toISOString().split('T')[0];
         const horaSalida = ahora.toLocaleTimeString('es-ES', { hour12: false });
+        
+        const bll = new (FichajeOficinaBLL as any)(BigInt(idusuario), 0, false);
 
-        const elRead = new (FichajeOficinaBLL as any)(idUser, 0, false);
-        const response: any = await elRead.get();
-        const lista = Array.isArray(response) ? response : (response?.data || []);
+        // 1. Buscar registro abierto de hoy
+        const sqlFind = `SELECT * FROM tbl_fichaje_oficina WHERE idusuario = $1 AND fecha = $2 AND (salida IS NULL OR salida = '') LIMIT 1`;
+        const findResult = await bll.dataAcces.execQueryPool(sqlFind, [idusuario, hoy]);
+        const rows = Array.isArray(findResult) ? findResult : (findResult?.rows || []);
 
-        // BUSCAR EL REGISTRO ABIERTO (Sin salida)
-        const registro = lista.find((f: any) => 
-            String(f.idusuario) === String(idusuario) && 
-            String(f.fecha).includes(hoy) &&
-            (f.salida === null || f.salida === undefined || String(f.salida).trim() === '' || String(f.salida) === 'null')
-        );
-
-        if (!registro) {
-            return res.status(400).json({ error: "No se encontró una entrada abierta para hoy o ya registraste tu salida." });
+        if (rows.length === 0) {
+            return res.status(400).json({ error: "No tienes una entrada abierta hoy." });
         }
 
-        const elWrite = new (FichajeOficinaBLL as any)(idUser, 0, false);
-        // Actualizamos los campos necesarios
-        registro.salida = `${hoy} ${horaSalida}`;
-        registro.idusuario_ultimo_cambio = idusuario;
+        const registro = rows[0];
 
-        try {
-            // El update suele requerir el ID y el objeto completo
-            await elWrite.update(BigInt(registro.id), registro);
-            return res.status(200).json({ data: "Salida registrada correctamente" });
-        } catch (e: any) {
-            if (e.message.includes('release')) return res.status(200).json({ data: "Salida registrada" });
-            throw e;
-        }
+        // 2. Actualizar salida usando SQL directo para evitar que el BLL cambie el idusuario a 1
+        const sqlUpdate = `UPDATE tbl_fichaje_oficina SET salida = $1, idusuario_ultimo_cambio = $2 WHERE id = $3`;
+        await bll.dataAcces.execQueryPool(sqlUpdate, [`${hoy} ${horaSalida}`, idusuario, registro.id]);
+
+        return res.status(200).json({ data: "Salida OK" });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
 });
 
-export const config = { api: { bodyParser: { sizeLimit: '1mb' } } };
 export default handler;

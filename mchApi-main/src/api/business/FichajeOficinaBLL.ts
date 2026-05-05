@@ -53,7 +53,7 @@ class FichajeOficinaBLL implements IDataAccess<IFichajeOficina> {
         data.token = UtilInstance.getUUID()
         data.tipo_ejecucion = data.tipo_ejecucion || 'manual'
         data.observacion = data.observacion || ''
-        data.idusuario = BigInt(1) // por conveniencia, pero nunca se actualiza en DB
+        //data.idusuario = BigInt(1) // por conveniencia, pero nunca se actualiza en DB
 
         this.validate(data, error)
 

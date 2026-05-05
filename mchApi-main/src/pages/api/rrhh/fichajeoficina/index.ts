@@ -11,29 +11,44 @@ const setCorsHeaders = (res: NextApiResponse) => {
 const handler = nc({
     onError: (err: any, req: NextApiRequest, res: NextApiResponse) => {
         setCorsHeaders(res);
-        res.status(500).json({ error: err?.message || "Error en el servidor" });
+        console.error("🔥 Error crítico en API:", err);
+        res.status(500).json({ error: err?.message || "Internal Server Error" });
+    },
+    onNoMatch: (req: NextApiRequest, res: NextApiResponse) => {
+        setCorsHeaders(res);
+        res.status(404).json({ error: "Ruta no encontrada" });
     }
 })
-.options((req, res) => { setCorsHeaders(res); res.status(200).end(); })
-.use((req, res, next) => { setCorsHeaders(res); next(); })
+.options((req, res) => {
+    setCorsHeaders(res);
+    res.status(200).end();
+})
+.use((req: NextApiRequest, res: NextApiResponse, next: any) => {
+    setCorsHeaders(res);
+    next();
+})
 .post(async (req: NextApiRequest, res: NextApiResponse) => {
     try {
         const item = req.body;
-        // Instanciamos el BLL solo para obtener el objeto de conexión (dal)
-        const bll = new (FichajeOficinaBLL as any)(BigInt(item.idusuario), 0, false);
-        const dal = bll.dataAcces;
+        const idUser = BigInt(item.idusuario);
+        
+        // Instancia limpia
+        const bll = new (FichajeOficinaBLL as any)(idUser, 0, false);
+        
+        // 1. Verificación de duplicados usando el método que ya sabemos que funciona (get)
+        const lista: any = await bll.get();
+        const datos = Array.isArray(lista) ? lista : (lista?.data || []);
+        
+        const yaExiste = datos.find((f: any) => 
+            String(f.idusuario) === String(item.idusuario) && 
+            String(f.fecha).substring(0, 10) === String(item.fecha).substring(0, 10)
+        );
 
-        // 1. VALIDACIÓN REAL: Consultamos la tabla de fichajes explícitamente
-        const sqlCheck = `SELECT id FROM tbl_fichaje_oficina WHERE idusuario = $1 AND fecha = $2 LIMIT 1`;
-        const checkResult = await dal.execQueryPool(sqlCheck, [item.idusuario, item.fecha]);
-        const rows = Array.isArray(checkResult) ? checkResult : (checkResult?.rows || []);
-
-        if (rows.length > 0) {
+        if (yaExiste) {
             return res.status(409).json({ error: "Ya has fichado la entrada hoy." });
         }
 
-        // 2. INSERCIÓN: Usamos el BLL pero asegurando el campo de auditoría
-        item.idusuario_ultimo_cambio = item.idusuario;
+        // 2. Inserción
         try {
             await bll.insert(item);
             return res.status(200).json({ data: "OK" });
@@ -47,25 +62,38 @@ const handler = nc({
 })
 .put(async (req: NextApiRequest, res: NextApiResponse) => {
     try {
-        const { idusuario, salida } = req.body;
-        const bll = new (FichajeOficinaBLL as any)(BigInt(idusuario), 0, false);
-        const dal = bll.dataAcces;
-        const hoy = salida.split(' ')[0]; // YYYY-MM-DD
+        const { idusuario } = req.body;
+        const idUser = BigInt(idusuario);
+        const hoy = new Date().toISOString().split('T')[0];
 
-        // 1. BUSCAR REGISTRO: Buscamos el ID en la tabla de fichajes, no en la que diga el BLL
-        const sqlFind = `SELECT id FROM tbl_fichaje_oficina WHERE idusuario = $1 AND fecha = $2 AND (salida IS NULL OR salida = '') LIMIT 1`;
-        const findResult = await dal.execQueryPool(sqlFind, [idusuario, hoy]);
-        const rows = Array.isArray(findResult) ? findResult : (findResult?.rows || []);
+        const bll = new (FichajeOficinaBLL as any)(idUser, 0, false);
+        
+        // 1. Buscamos el registro abierto
+        const lista: any = await bll.get();
+        const datos = Array.isArray(lista) ? lista : (lista?.data || []);
+        
+        const registro = datos.find((f: any) => 
+            String(f.idusuario) === String(idusuario) && 
+            String(f.fecha).substring(0, 10) === hoy &&
+            (!f.salida || String(f.salida).trim() === '' || String(f.salida) === 'null')
+        );
 
-        if (rows.length === 0) {
-            return res.status(400).json({ error: "No tienes una entrada abierta hoy." });
+        if (!registro) {
+            return res.status(400).json({ error: "No se encontró una entrada abierta para hoy." });
         }
 
-        // 2. ACTUALIZACIÓN DIRECTA: SQL puro para saltarnos cualquier lógica del BLL que nos asigne el ID 1
-        const sqlUpdate = `UPDATE tbl_fichaje_oficina SET salida = $1, idusuario_ultimo_cambio = $2 WHERE id = $3`;
-        await dal.execQueryPool(sqlUpdate, [salida, idusuario, rows[0].id]);
+        // 2. Actualizamos salida
+        const horaSalida = new Date().toLocaleTimeString('es-ES', { hour12: false });
+        registro.salida = `${hoy} ${horaSalida}`;
+        registro.idusuario_ultimo_cambio = idusuario;
 
-        return res.status(200).json({ data: "Salida registrada con éxito" });
+        try {
+            await bll.update(BigInt(registro.id), registro);
+            return res.status(200).json({ data: "Salida OK" });
+        } catch (e: any) {
+            if (e.message.includes('release')) return res.status(200).json({ data: "Salida OK" });
+            throw e;
+        }
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }

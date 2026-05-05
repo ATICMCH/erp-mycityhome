@@ -24,19 +24,13 @@ const FichajeBoton = () => {
 
             const datosCompletos = currentUser as any;
             const nombreUsuario = datosCompletos.nombre_completo || datosCompletos.nombre || datosCompletos.email || 'Usuario ERP';
-            const jornada = (datosCompletos.jornada && datosCompletos.jornada !== 'NA') ? datosCompletos.jornada : 'Jornada Completa';
-            const horario = (datosCompletos.horario && datosCompletos.horario !== 'NA') ? datosCompletos.horario : 'HC';
-
-            // URL directa de tu API Backend
+            
             const urlApi = 'http://185.252.233.57:3016/api/rrhh/fichajeoficina';
 
             if (tipo === 'entrada') {
                 const res = await fetch(urlApi, {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Token': datosCompletos.token || '' 
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         idusuario: currentUser.id,
                         usuario: nombreUsuario,
@@ -45,38 +39,37 @@ const FichajeBoton = () => {
                         estado: 1,
                         tipo_ejecucion: 'manual',
                         observacion: 'Fichaje manual desde botón',
-                        jornada: jornada,
-                        horario: horario,
+                        jornada: datosCompletos.jornada || 'Jornada Completa',
+                        horario: datosCompletos.horario || 'HC',
                         idusuario_ultimo_cambio: currentUser.id 
                     })
                 });
 
+                const data = await res.json();
                 if (res.ok) {
                     alert("✅ Entrada registrada correctamente a las " + hora);
                 } else {
-                    const err = await res.json();
-                    console.error("Detalle del servidor:", err);
-                    // Aquí mostramos el mensaje real del backend
-                    alert("⚠️ Aviso: " + (err.error || "No se pudo registrar la entrada."));
+                    alert("⚠️ Aviso: " + (data.error || "Error al registrar entrada"));
                 }
             } else {
+                // CORRECCIÓN AQUÍ: Usamos currentUser.id correctamente
                 const res = await fetch(urlApi, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ idusuario: currentUser.id })
                 });
 
+                const data = await res.json();
                 if (res.ok) {
                     alert("👋 Salida registrada correctamente a las " + hora);
                 } else {
-                    const err = await res.json();
-                    alert("⚠️ Aviso: " + (err.error || "Error al registrar la salida."));
+                    alert("⚠️ Aviso: " + (data.error || "Error al registrar salida"));
                 }
             }
 
         } catch (error) {
-            console.error("Error en fichaje:", error);
-            alert("❌ Error de conexión al servidor. Revisa la consola.");
+            console.error("Error:", error);
+            alert("❌ Error de conexión con el servidor.");
         } finally {
             setCargando(false);
         }
@@ -84,41 +77,10 @@ const FichajeBoton = () => {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '85%' }}>
-            <button 
-                onClick={() => registrarFichaje('entrada')}
-                disabled={cargando}
-                style={{
-                    backgroundColor: '#4CAF50',
-                    color: 'white',
-                    border: 'none',
-                    padding: '8px',
-                    borderRadius: '8px',
-                    cursor: cargando ? 'wait' : 'pointer',
-                    fontWeight: 'bold',
-                    fontSize: '12px',
-                    width: '100%',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                }}
-            >
+            <button onClick={() => registrarFichaje('entrada')} disabled={cargando} style={{ backgroundColor: '#4CAF50', color: 'white', border: 'none', padding: '10px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                 {cargando ? '...' : '✅ Entrar'}
             </button>
-
-            <button 
-                onClick={() => registrarFichaje('salida')}
-                disabled={cargando}
-                style={{
-                    backgroundColor: '#f44336',
-                    color: 'white',
-                    border: 'none',
-                    padding: '8px',
-                    borderRadius: '8px',
-                    cursor: cargando ? 'wait' : 'pointer',
-                    fontWeight: 'bold',
-                    fontSize: '12px',
-                    width: '100%',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                }}
-            >
+            <button onClick={() => registrarFichaje('salida')} disabled={cargando} style={{ backgroundColor: '#f44336', color: 'white', border: 'none', padding: '10px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                 {cargando ? '...' : '👋 Salir'}
             </button>
         </div>

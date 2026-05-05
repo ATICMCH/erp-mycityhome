@@ -11,7 +11,7 @@ const setCorsHeaders = (res: NextApiResponse) => {
 const handler = nc({
     onError: (err: any, req: NextApiRequest, res: NextApiResponse) => {
         setCorsHeaders(res);
-        res.status(500).json({ error: err?.message || "Error" });
+        res.status(500).json({ error: err?.message || "Error interno" });
     }
 })
 .options((req, res) => { setCorsHeaders(res); res.status(200).end(); })
@@ -20,27 +20,31 @@ const handler = nc({
     try {
         const item = req.body;
         const idUser = BigInt(item.idusuario);
-        const hoy = item.fecha;
+        const hoy = item.fecha; // Formato YYYY-MM-DD
 
-        // 1. Instancia para leer
+        // Instancia para lectura
         const elRead = new (FichajeOficinaBLL as any)(idUser, 0, false);
-        const resp: any = await elRead.get();
-        const lista = Array.isArray(resp) ? resp : (resp?.data || []);
+        const response: any = await elRead.get();
+        const lista = Array.isArray(response) ? response : (response?.data || []);
 
-        // VALIDACIÓN ANTI-DUPLICADOS
-        const existe = lista.find((f: any) => 
-            String(f.idusuario) === String(item.idusuario) && String(f.fecha).includes(hoy)
+        // VALIDACIÓN: ¿Existe ya un registro para este usuario hoy?
+        const yaExiste = lista.find((f: any) => 
+            String(f.idusuario) === String(item.idusuario) && 
+            String(f.fecha).includes(hoy)
         );
 
-        if (existe) return res.status(409).json({ error: "Ya has fichado hoy." });
+        if (yaExiste) {
+            return res.status(409).json({ error: "Ya has registrado tu entrada el día de hoy." });
+        }
 
-        // 2. Instancia para insertar
+        // Si no existe, insertamos
         const elWrite = new (FichajeOficinaBLL as any)(idUser, 0, false);
         try {
             await elWrite.insert(item);
-            return res.status(200).json({ data: "Entrada OK" });
+            return res.status(200).json({ data: "Entrada registrada" });
         } catch (e: any) {
-            if (e.message.includes('release')) return res.status(200).json({ data: "Entrada OK" });
+            // Ignoramos error de release() si el insert fue exitoso
+            if (e.message.includes('release')) return res.status(200).json({ data: "Entrada registrada" });
             throw e;
         }
     } catch (error: any) {
@@ -55,10 +59,10 @@ const handler = nc({
         const hoy = ahora.toISOString().split('T')[0];
         const horaSalida = ahora.toLocaleTimeString('es-ES', { hour12: false });
 
-        // 1. Buscar registro abierto
+        // Buscamos el registro abierto de hoy
         const elRead = new (FichajeOficinaBLL as any)(idUser, 0, false);
-        const resp: any = await elRead.get();
-        const lista = Array.isArray(resp) ? resp : (resp?.data || []);
+        const response: any = await elRead.get();
+        const lista = Array.isArray(response) ? response : (response?.data || []);
 
         const registro = lista.find((f: any) => 
             String(f.idusuario) === String(idusuario) && 
@@ -66,18 +70,20 @@ const handler = nc({
             (!f.salida || String(f.salida).trim() === '' || String(f.salida) === 'null')
         );
 
-        if (!registro) return res.status(400).json({ error: "No hay entrada abierta hoy." });
+        if (!registro) {
+            return res.status(400).json({ error: "No tienes una entrada abierta hoy o ya marcaste la salida." });
+        }
 
-        // 2. Preparar objeto para UPDATE
-        // TRUCO: Clonamos el objeto y forzamos el idusuario correcto para que el BLL no lo cambie a 1
-        const datosUpdate = { ...registro, salida: `${hoy} ${horaSalida}`, idusuario: idusuario };
+        // Actualizamos el objeto con la salida
+        registro.salida = `${hoy} ${horaSalida}`;
+        registro.idusuario_ultimo_cambio = idusuario;
 
-        const elWrite = new (FichajeOficinaBLL as any)(idUser, 0, false);
+        const elUpdate = new (FichajeOficinaBLL as any)(idUser, 0, false);
         try {
-            await elWrite.update(BigInt(registro.id), datosUpdate);
-            return res.status(200).json({ data: "Salida OK" });
+            await elUpdate.update(BigInt(registro.id), registro);
+            return res.status(200).json({ data: "Salida registrada con éxito" });
         } catch (e: any) {
-            if (e.message.includes('release')) return res.status(200).json({ data: "Salida OK" });
+            if (e.message.includes('release')) return res.status(200).json({ data: "Salida registrada" });
             throw e;
         }
     } catch (error: any) {

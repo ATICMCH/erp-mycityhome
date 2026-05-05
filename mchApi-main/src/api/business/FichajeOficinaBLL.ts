@@ -49,21 +49,23 @@ class FichajeOficinaBLL implements IDataAccess<IFichajeOficina> {
     return this.dataAcces.getFichajes();
 }
 
-    async update(id: BigInt, data: IFichajeOficina): Promise<IFichajeOficina | IErrorResponse> {
-        let error: IErrorResponse = { error: 'Error, integridad de datos', data:[] }
+   async update(id: BigInt, data: IFichajeOficina): Promise<IFichajeOficina | IErrorResponse> {
+    let error: IErrorResponse = { error: 'Error, integridad de datos', data:[] }
 
-        // Init data por defecto
-        data.usuario = data.usuario || ''
-        data.token = UtilInstance.getUUID()
-        data.tipo_ejecucion = data.tipo_ejecucion || 'manual'
-        data.observacion = data.observacion || ''
-        //data.idusuario = BigInt(1) // por conveniencia, pero nunca se actualiza en DB
+    // Aseguramos valores por defecto para evitar errores de null en BD
+    data.usuario = data.usuario || ''
+    data.token = data.token || UtilInstance.getUUID()
+    data.tipo_ejecucion = data.tipo_ejecucion || 'manual'
+    data.observacion = data.observacion || 'Fichaje actualizado'
 
-        this.validate(data, error)
+    this.validate(data, error)
 
-        return (error.data?.length === 0) ? this.dataAcces.update(id, data) : 
-                                            new Promise<IErrorResponse>((resolve, reject) => { resolve(error) })
+    if (error.data?.length === 0) {
+        return this.dataAcces.update(id, data);
+    } else {
+        return error;
     }
+}
 
     delete(id: BigInt): Promise<IFichajeOficina | IErrorResponse> {
         return this.dataAcces.delete(id)

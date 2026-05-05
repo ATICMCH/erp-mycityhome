@@ -11,44 +11,32 @@ const setCorsHeaders = (res: NextApiResponse) => {
 const handler = nc({
     onError: (err: any, req: NextApiRequest, res: NextApiResponse) => {
         setCorsHeaders(res);
-        console.error("🔥 Error crítico en API:", err);
-        res.status(500).json({ error: err?.message || "Internal Server Error" });
-    },
-    onNoMatch: (req: NextApiRequest, res: NextApiResponse) => {
-        setCorsHeaders(res);
-        res.status(404).json({ error: "Ruta no encontrada" });
+        res.status(500).json({ error: err?.message || "Error" });
     }
 })
-.options((req, res) => {
-    setCorsHeaders(res);
-    res.status(200).end();
-})
-.use((req: NextApiRequest, res: NextApiResponse, next: any) => {
-    setCorsHeaders(res);
-    next();
-})
+.options((req, res) => { setCorsHeaders(res); res.status(200).end(); })
+.use((req, res, next) => { setCorsHeaders(res); next(); })
 .post(async (req: NextApiRequest, res: NextApiResponse) => {
     try {
         const item = req.body;
         const idUser = BigInt(item.idusuario);
-        
-        // Instancia limpia
+        const hoy = item.fecha; // YYYY-MM-DD
+
         const bll = new (FichajeOficinaBLL as any)(idUser, 0, false);
         
-        // 1. Verificación de duplicados usando el método que ya sabemos que funciona (get)
-        const lista: any = await bll.get();
-        const datos = Array.isArray(lista) ? lista : (lista?.data || []);
-        
-        const yaExiste = datos.find((f: any) => 
+        // USAMOS EL NUEVO MÉTODO
+        const response: any = await bll.getFichajes();
+        const lista = Array.isArray(response) ? response : (response?.data || []);
+
+        const yaExiste = lista.find((f: any) => 
             String(f.idusuario) === String(item.idusuario) && 
-            String(f.fecha).substring(0, 10) === String(item.fecha).substring(0, 10)
+            String(f.fecha).includes(hoy)
         );
 
         if (yaExiste) {
             return res.status(409).json({ error: "Ya has fichado la entrada hoy." });
         }
 
-        // 2. Inserción
         try {
             await bll.insert(item);
             return res.status(200).json({ data: "OK" });
@@ -64,26 +52,26 @@ const handler = nc({
     try {
         const { idusuario } = req.body;
         const idUser = BigInt(idusuario);
-        const hoy = new Date().toISOString().split('T')[0];
+        const ahora = new Date();
+        const hoy = ahora.toISOString().split('T')[0];
+        const horaSalida = ahora.toLocaleTimeString('es-ES', { hour12: false });
 
         const bll = new (FichajeOficinaBLL as any)(idUser, 0, false);
         
-        // 1. Buscamos el registro abierto
-        const lista: any = await bll.get();
-        const datos = Array.isArray(lista) ? lista : (lista?.data || []);
-        
-        const registro = datos.find((f: any) => 
+        // USAMOS EL NUEVO MÉTODO TAMBIÉN AQUÍ
+        const response: any = await bll.getFichajes();
+        const lista = Array.isArray(response) ? response : (response?.data || []);
+
+        const registro = lista.find((f: any) => 
             String(f.idusuario) === String(idusuario) && 
-            String(f.fecha).substring(0, 10) === hoy &&
+            String(f.fecha).includes(hoy) &&
             (!f.salida || String(f.salida).trim() === '' || String(f.salida) === 'null')
         );
 
         if (!registro) {
-            return res.status(400).json({ error: "No se encontró una entrada abierta para hoy." });
+            return res.status(400).json({ error: "No se encontró entrada abierta hoy." });
         }
 
-        // 2. Actualizamos salida
-        const horaSalida = new Date().toLocaleTimeString('es-ES', { hour12: false });
         registro.salida = `${hoy} ${horaSalida}`;
         registro.idusuario_ultimo_cambio = idusuario;
 

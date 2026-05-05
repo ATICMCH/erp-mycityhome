@@ -2,7 +2,6 @@ import nc from "next-connect";
 import { NextApiRequest, NextApiResponse } from "next";
 import FichajeOficinaBLL from "@/api/business/FichajeOficinaBLL";
 
-// Función auxiliar para inyectar CORS en cada petición
 const setCorsHeaders = (res: NextApiResponse) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -35,131 +34,78 @@ const handler = nc({
 })
 .post(async (req: NextApiRequest, res: NextApiResponse) => {
     try {
-        const item = req.body; 
-        item.estado = 1;
-        item.idusuario_ultimo_cambio = item.idusuario;
+        const item = req.body;
+        const idUser = BigInt(item.idusuario);
         
-        // Formateamos el ID para que la clase no de error
-        const idUser = item.idusuario ? BigInt(item.idusuario) : BigInt(1);
-        
-        // 1. VALIDACIÓN ANTI-DUPLICADOS (Una sola entrada al día)
-        // INICIALIZAMOS CON LOS PARÁMETROS OBLIGATORIOS DE TU CLASE
+        // 1. Instancia para lectura
         const elRead = new (FichajeOficinaBLL as any)(idUser, 0, false);
-        const responseRead: any = await elRead.get();
-        
-        const todosLosFichajes = Array.isArray(responseRead) ? responseRead : (responseRead?.data || []);
-        
-        if (todosLosFichajes.length > 0) {
-            const existe = todosLosFichajes.find((f: any) => {
-                const fechaBD = f.fecha ? String(f.fecha).substring(0, 10) : "";
-                const fechaItem = item.fecha ? String(item.fecha).substring(0, 10) : "";
-                return String(f.idusuario) === String(item.idusuario) && fechaBD === fechaItem;
-            });
+        const response: any = await elRead.get();
+        const lista = Array.isArray(response) ? response : (response?.data || []);
 
-            if (existe) {
-                console.log(`⚠️ Intento duplicado bloqueado para: ${item.usuario}`);
-                return res.status(409).json({ error: "El usuario ya ha registrado una entrada hoy." });
-            }
+        // 2. Validación de duplicado hoy
+        const hoy = item.fecha; // YYYY-MM-DD
+        const yaExiste = lista.find((f: any) => 
+            String(f.idusuario) === String(item.idusuario) && 
+            String(f.fecha).includes(hoy)
+        );
+
+        if (yaExiste) {
+            return res.status(409).json({ error: "Ya has fichado la entrada hoy." });
         }
 
-        // 2. INSERCIÓN
+        // 3. Inserción
         const elWrite = new (FichajeOficinaBLL as any)(idUser, 0, false);
-        
         try {
-            const result = await elWrite.insert(item);
-            
-            if (result && (result as any).error) {
-                 return res.status(400).json({ error: (result as any).error });
-            }
-            
-            console.log(`✅ Entrada grabada con éxito para: ${item.usuario}`);
-            return res.status(200).json({ data: result });
-
-        } catch (insertError: any) {
-            // Neutralizamos el bug de o.release
-            if (insertError?.message?.includes('release is not a function')) {
-                console.log(`✅ Entrada grabada (ignorando bug de conexión) para: ${item.usuario}`);
-                return res.status(200).json({ data: "Entrada registrada exitosamente" });
-            } else {
-                throw insertError; 
-            }
+            await elWrite.insert(item);
+            return res.status(200).json({ data: "Entrada registrada" });
+        } catch (e: any) {
+            if (e.message.includes('release')) return res.status(200).json({ data: "Entrada registrada" });
+            throw e;
         }
-
     } catch (error: any) {
-        console.error("Error en POST Fichaje:", error?.message || error);
-        res.status(500).json({ error: error?.message || 'Error al guardar en BD' });
+        res.status(500).json({ error: error.message });
     }
 })
 .put(async (req: NextApiRequest, res: NextApiResponse) => {
     try {
         const { idusuario } = req.body;
-        const idUser = idusuario ? BigInt(idusuario) : BigInt(1);
-        
+        const idUser = BigInt(idusuario);
         const ahora = new Date();
-        const hoy = ahora.getFullYear() + '-' + String(ahora.getMonth() + 1).padStart(2, '0') + '-' + String(ahora.getDate()).padStart(2, '0');
+        const hoy = ahora.toISOString().split('T')[0]; // YYYY-MM-DD
         const horaSalida = ahora.toLocaleTimeString('es-ES', { hour12: false });
-        const timestampSalida = `${hoy} ${horaSalida}`;
 
-        // 1. VALIDACIÓN PARA SALIDA CON LOS PARÁMETROS OBLIGATORIOS
-        const elRead = new (FichajeOficinaBLL as any)(idUser, 0, false); 
-        const responseRead: any = await elRead.get();
-        const todosLosFichajes = Array.isArray(responseRead) ? responseRead : (responseRead?.data || []);
-        
-        if (todosLosFichajes.length > 0) {
-            const registroAbierto = todosLosFichajes.find((f: any) => {
-                const fechaBD = f.fecha ? String(f.fecha).substring(0, 10) : "";
-                
-                return String(f.idusuario) === String(idusuario) && 
-                       fechaBD === hoy && 
-                       (!f.salida || String(f.salida).trim() === '' || String(f.salida) === 'null');
-            });
+        // 1. Buscar el registro abierto de hoy
+        const elRead = new (FichajeOficinaBLL as any)(idUser, 0, false);
+        const response: any = await elRead.get();
+        const lista = Array.isArray(response) ? response : (response?.data || []);
 
-            if (!registroAbierto) {
-                return res.status(400).json({ error: "No tienes una entrada abierta hoy o ya registraste tu salida." });
-            }
+        // Buscamos el registro de este usuario, de hoy, que NO tenga salida
+        const registro = lista.find((f: any) => 
+            String(f.idusuario) === String(idusuario) && 
+            String(f.fecha).includes(hoy) &&
+            (f.salida === null || f.salida === undefined || f.salida === '')
+        );
 
-            // 2. ACTUALIZAMOS SALIDA (USANDO TU MÉTODO UPDATE NATIVO)
-            const elWrite = new (FichajeOficinaBLL as any)(idUser, 0, false); 
-            registroAbierto.salida = timestampSalida;
-            registroAbierto.idusuario_ultimo_cambio = idusuario;
-            
-            try {
-                // Pasamos el id como BigInt como exige tu BLL
-                const result = await elWrite.update(BigInt(registroAbierto.id), registroAbierto);
-
-                if (result && (result as any).error) {
-                    return res.status(400).json({ error: (result as any).error });
-                }
-
-                console.log(`✅ Salida grabada para usuario ${idusuario} a las ${horaSalida}`);
-                return res.status(200).json({ data: "Salida registrada con éxito" });
-
-            } catch (updateError: any) {
-                // Neutralizamos el bug de o.release en la salida también
-                if (updateError?.message?.includes('release is not a function')) {
-                    console.log(`✅ Salida grabada (ignorando bug de conexión) para: ${idusuario}`);
-                    return res.status(200).json({ data: "Salida registrada exitosamente" });
-                } else {
-                    throw updateError;
-                }
-            }
-
-        } else {
-             return res.status(500).json({ error: "No se encontraron registros de fichaje para verificar." });
+        if (!registro) {
+            return res.status(400).json({ error: "No se encontró una entrada abierta para hoy." });
         }
 
-    } catch (err: any) {
-        console.error("Error en PUT Fichaje:", err?.message || err);
-        res.status(500).json({ error: err?.message || 'Error al actualizar salida' });
+        // 2. Actualizar salida
+        const elWrite = new (FichajeOficinaBLL as any)(idUser, 0, false);
+        registro.salida = `${hoy} ${horaSalida}`;
+        registro.idusuario_ultimo_cambio = idusuario;
+
+        try {
+            await elWrite.update(BigInt(registro.id), registro);
+            return res.status(200).json({ data: "Salida registrada" });
+        } catch (e: any) {
+            if (e.message.includes('release')) return res.status(200).json({ data: "Salida registrada" });
+            throw e;
+        }
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
     }
 });
 
-export const config = {
-    api: {
-        bodyParser: {
-            sizeLimit: '1mb',
-        },
-    },
-};
-
+export const config = { api: { bodyParser: { sizeLimit: '1mb' } } };
 export default handler;

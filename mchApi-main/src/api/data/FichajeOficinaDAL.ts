@@ -438,35 +438,45 @@ async update(id: BigInt, data: IFichajeOficina): Promise<IFichajeOficina | IErro
     }
 
 async registrarAsistenciaSimple(idusuario: number, usuario: string, tipo: string): Promise<any> {
-    const ahora = new Date();
-    const fecha = ahora.toLocaleDateString('en-CA'); // YYYY-MM-DD
-    const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
+    try {
+        const ahora = new Date();
+        // Usamos una fecha limpia sin horas para la columna DATE
+        const fechaSql = ahora.toISOString().split('T')[0]; 
+        const horaSql = ahora.toLocaleTimeString('es-ES', { hour12: false });
 
-    // 1. VALIDACIÓN: ¿Ya existe un registro de este 'tipo' para este 'idusuario' en esta 'fecha'?
-    const sqlCheck = {
-        name: 'check-asistencia-diaria',
-        text: `SELECT id FROM tbl_asistencia 
-               WHERE idusuario = $1 AND tipo = $2 AND fecha = $3 
-               LIMIT 1`,
-        values: [idusuario, tipo, fecha]
-    };
+        // 1. VALIDACIÓN: ¿Ya existe hoy?
+        const sqlCheck = {
+            name: 'check-asistencia-diaria-v2',
+            text: `SELECT id FROM tbl_asistencia 
+                   WHERE idusuario = $1 AND tipo = $2 AND fecha = $3 
+                   LIMIT 1`,
+            values: [idusuario, tipo, fechaSql]
+        };
 
-    const existe: any = await this.client.exeQuery(sqlCheck);
+        const existe: any = await this.client.exeQuery(sqlCheck);
 
-    if (existe && existe.length > 0) {
-        // Devolvemos un objeto que el BLL o API puedan identificar como "ya existe"
-        return { error: `Ya has registrado tu ${tipo} el día de hoy.` };
+        // Si 'existe' es un array con datos, es que ya fichó
+        if (Array.isArray(existe) && existe.length > 0) {
+            return { error: `Ya has registrado tu ${tipo} el día de hoy.` };
+        }
+
+        // 2. INSERCIÓN
+        const queryData = {
+            name: 'insert-asistencia-directa-v2',
+            text: `INSERT INTO tbl_asistencia (idusuario, usuario, tipo, fecha, hora)
+                   VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+            values: [idusuario, usuario, tipo, fechaSql, horaSql]
+        };
+
+        const resInsert = await this.client.exeQuery(queryData);
+        
+        // Devolvemos el primer resultado del array si todo fue bien
+        return Array.isArray(resInsert) ? resInsert[0] : resInsert;
+
+    } catch (err: any) {
+        console.error("Error en DAL registrarAsistenciaSimple:", err);
+        return { error: "Error interno al procesar el registro en base de datos." };
     }
-
-    // 2. INSERCIÓN: Si no existe, procedemos a guardar
-    const queryData = {
-        name: 'insert-asistencia-directa',
-        text: `INSERT INTO tbl_asistencia (idusuario, usuario, tipo, fecha, hora)
-               VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-        values: [idusuario, usuario, tipo, fecha, hora]
-    };
-
-    return await this.client.exeQuery(queryData);
 }
 
     async updateJornada(id: BigInt, data: IUser): Promise<IUser | IErrorResponse> {

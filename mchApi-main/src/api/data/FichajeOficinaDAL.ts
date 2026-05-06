@@ -39,20 +39,14 @@ class FichajeOficinaDAL implements IDataAccess<IFichajeOficina> {
         return lData as Array<IFichajeOficina>;
     }
 
-    async getFichajes(): Promise<Array<IFichajeOficina> | IErrorResponse> {
-    const queryData = {
-        name: 'get-fichajes-oficina-real',
-        text: ` SELECT fo.*
-                FROM ${Constants.tbl_fichaje_oficina_sql} fo
-                WHERE fo.estado = 1
-                ORDER BY fo.id DESC
-                LIMIT 100`,
-        values: []
-    };
-
-    let lData = await this.client.exeQuery(queryData) as Array<IFichajeOficina>;
-    return lData;
-}
+ async getFichajes(): Promise<Array<IFichajeOficina> | IErrorResponse> {
+        const queryData = {
+            name: 'get-fichajes-oficina-real',
+            text: `SELECT * FROM ${Constants.tbl_fichaje_oficina_sql} WHERE estado = 1 ORDER BY id DESC LIMIT 100`,
+            values: []
+        };
+        return (await this.client.exeQuery(queryData)) as Array<IFichajeOficina>;
+    }
 
     async getById(id: BigInt): Promise<IFichajeOficina | IErrorResponse> {
         const queryData = {
@@ -77,64 +71,41 @@ class FichajeOficinaDAL implements IDataAccess<IFichajeOficina> {
         return lData[0];
     }
 
-    async insert(data: IFichajeOficina): Promise<IFichajeOficina | IErrorResponse> {
-    let responseD = await this.client.execQueryPool(async (client): Promise<Array<IModel | IErrorResponse>> => {
+async insert(data: IFichajeOficina): Promise<IFichajeOficina | IErrorResponse> {
         const timeStampCurrent = UtilInstance.getDateCurrentForSQL();
         const queryData = {
-            name: 'insert-fichaje-manual-fixed',
+            name: 'insert-fichaje-oficina-fixed',
             text: `INSERT INTO ${Constants.tbl_fichaje_oficina_sql}(
                     usuario, fecha, entrada, salida, token, tipo_ejecucion,
                     observacion, fecha_ultimo_cambio, idusuario, idusuario_ultimo_cambio, estado)
                     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, 1) RETURNING *`,
             values: [
-                data.usuario,
-                data.fecha,
-                data.entrada,
-                data.salida || null,
-                data.token || UtilInstance.getUUID(),
-                data.tipo_ejecucion || 'manual',
-                data.observacion || '',
-                timeStampCurrent,
-                data.idusuario,
-                this.idUserLogin // Este es el parámetro $10 que faltaba/estaba mal
+                data.usuario, data.fecha, data.entrada, data.salida || null,
+                data.token || UtilInstance.getUUID(), data.tipo_ejecucion || 'manual',
+                data.observacion || '', timeStampCurrent, data.idusuario, this.idUserLogin
             ]
         };
-        let res = await client.query(queryData);
-        return res.rows;
-    });
-    return responseD[0] as IFichajeOficina;
-}
+        const res = (await this.client.exeQuery(queryData)) as Array<IFichajeOficina>;
+        return res[0];
+    }
 
-  async update(id: BigInt, data: IFichajeOficina): Promise<IFichajeOficina | IErrorResponse> {
-    let responseD = await this.client.execQueryPool(async (client): Promise<Array<IModel | IErrorResponse>> => {
+async update(id: BigInt, data: IFichajeOficina): Promise<IFichajeOficina | IErrorResponse> {
         const timeStampCurrent = UtilInstance.getDateCurrentForSQL();
-        let queryData = {
+        const queryData = {
             name: 'update-fichaje-oficina-fixed',
             text: `UPDATE ${Constants.tbl_fichaje_oficina_sql} SET
-                    entrada = $1,
-                    salida = $2,
-                    observacion = $3,
-                    idusuario_ultimo_cambio = $4,
-                    fecha_ultimo_cambio = $5,
-                    token = $6,
-                    tipo_ejecucion = $7
+                    entrada = $1, salida = $2, observacion = $3,
+                    idusuario_ultimo_cambio = $4, fecha_ultimo_cambio = $5,
+                    token = $6, tipo_ejecucion = $7
                     WHERE id = $8 RETURNING *`,
             values: [
-                data.entrada,
-                data.salida,
-                data.observacion,
-                this.idUserLogin,
-                timeStampCurrent,
-                data.token,
-                data.tipo_ejecucion,
-                id // El ID del registro a actualizar
+                data.entrada, data.salida, data.observacion,
+                this.idUserLogin, timeStampCurrent, data.token, data.tipo_ejecucion, id
             ]
         };
-        let res = await client.query(queryData);
-        return res.rows;
-    });
-    return responseD[0] as IFichajeOficina;
-}
+        const res = (await this.client.exeQuery(queryData)) as Array<IFichajeOficina>;
+        return res[0];
+    }
 
     async delete(id: BigInt): Promise<IFichajeOficina | IErrorResponse> {
         let responseD = await this.client.execQueryPool(async (client): Promise<Array<IModel | IErrorResponse>> => {

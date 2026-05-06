@@ -437,11 +437,28 @@ async update(id: BigInt, data: IFichajeOficina): Promise<IFichajeOficina | IErro
         return lData as Array<IFichajeOficina>;
     }
 
-    async registrarAsistenciaSimple(idusuario: number, usuario: string, tipo: string): Promise<any> {
+async registrarAsistenciaSimple(idusuario: number, usuario: string, tipo: string): Promise<any> {
     const ahora = new Date();
     const fecha = ahora.toLocaleDateString('en-CA'); // YYYY-MM-DD
     const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
 
+    // 1. VALIDACIÓN: ¿Ya existe un registro de este 'tipo' para este 'idusuario' en esta 'fecha'?
+    const sqlCheck = {
+        name: 'check-asistencia-diaria',
+        text: `SELECT id FROM tbl_asistencia 
+               WHERE idusuario = $1 AND tipo = $2 AND fecha = $3 
+               LIMIT 1`,
+        values: [idusuario, tipo, fecha]
+    };
+
+    const existe: any = await this.client.exeQuery(sqlCheck);
+
+    if (existe && existe.length > 0) {
+        // Devolvemos un objeto que el BLL o API puedan identificar como "ya existe"
+        return { error: `Ya has registrado tu ${tipo} el día de hoy.` };
+    }
+
+    // 2. INSERCIÓN: Si no existe, procedemos a guardar
     const queryData = {
         name: 'insert-asistencia-directa',
         text: `INSERT INTO tbl_asistencia (idusuario, usuario, tipo, fecha, hora)

@@ -19,23 +19,22 @@ const handler = nc<NextApiRequest, NextApiResponse>()
 })
 .post(async (req: NextApiRequest, res: NextApiResponse) => {
     try {
-        const { idusuario, usuario, tipo } = req.body;
-        
-        // Instanciamos tu BLL (usamos 0 y false como parámetros por defecto)
-        const bll = new (FichajeOficinaBLL as any)(BigInt(idusuario), 0, false);
+    const { idusuario, usuario, tipo } = req.body;
+    const bll = new (FichajeOficinaBLL as any)(BigInt(idusuario), 0, false);
 
-        // Llamamos al nuevo método que interactúa con la base de datos de forma segura
-        const result = await bll.registrarAsistenciaSimple(idusuario, usuario, tipo);
+    const result = await bll.registrarAsistenciaSimple(idusuario, usuario, tipo);
 
-        if (result && !result.error) {
-            return res.status(200).json({ data: "Registro guardado con éxito" });
-        } else {
-            throw new Error(result.error || "Error desconocido en BD");
-        }
-    } catch (error: any) {
-        console.error("🔥 Error API:", error.message);
-        res.status(500).json({ error: error.message });
+    // Si el resultado trae la propiedad 'error' (la que pusimos en el DAL)
+    if (result && result.error) {
+        return res.status(409).json({ error: result.error });
     }
+
+    if (result && !result.error) {
+        return res.status(200).json({ data: "Registro guardado con éxito" });
+    }
+} catch (error: any) {
+    res.status(500).json({ error: error.message });
+}
 });
 
 export default handler;

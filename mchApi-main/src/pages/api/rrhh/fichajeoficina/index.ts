@@ -20,26 +20,20 @@ const handler = nc<NextApiRequest, NextApiResponse>()
 .post(async (req: NextApiRequest, res: NextApiResponse) => {
     try {
         const { idusuario, usuario, tipo } = req.body;
-        if (!idusuario || !tipo) return res.status(400).json({ error: "Datos incompletos" });
-
+        
+        // Instanciamos tu BLL (usamos 0 y false como parámetros por defecto)
         const bll = new (FichajeOficinaBLL as any)(BigInt(idusuario), 0, false);
 
+        // Llamamos al nuevo método que interactúa con la base de datos de forma segura
         const result = await bll.registrarAsistenciaSimple(idusuario, usuario, tipo);
 
-        // Si el resultado es un objeto con la propiedad 'error'
-        if (result && result.error) {
-            return res.status(409).json({ error: result.error });
-        }
-
-        // Si tenemos un ID, es que se guardó correctamente
-        if (result && (result.id || !result.error)) {
+        if (result && !result.error) {
             return res.status(200).json({ data: "Registro guardado con éxito" });
+        } else {
+            throw new Error(result.error || "Error desconocido en BD");
         }
-        
-        return res.status(500).json({ error: "No se pudo confirmar el guardado." });
-
     } catch (error: any) {
-        console.error("🔥 Error en Endpoint Asistencia:", error);
+        console.error("🔥 Error API:", error.message);
         res.status(500).json({ error: error.message });
     }
 });

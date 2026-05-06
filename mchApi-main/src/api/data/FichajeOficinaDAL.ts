@@ -438,37 +438,18 @@ async update(id: BigInt, data: IFichajeOficina): Promise<IFichajeOficina | IErro
     }
 
 async registrarAsistenciaSimple(idusuario: number, usuario: string, tipo: string): Promise<any> {
-    try {
-        // 1. VALIDACIÓN: Usamos CURRENT_DATE de PostgreSQL para que no haya fallos de zona horaria
-        const sqlCheck = {
-            name: 'check-asistencia-diaria-v3',
-            text: `SELECT id FROM tbl_asistencia 
-                   WHERE idusuario = $1 AND tipo = $2 AND fecha = CURRENT_DATE 
-                   LIMIT 1`,
-            values: [idusuario, tipo]
-        };
+    const ahora = new Date();
+    const fecha = ahora.toLocaleDateString('en-CA'); // YYYY-MM-DD
+    const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
 
-        const existe: any = await this.client.exeQuery(sqlCheck);
+    const queryData = {
+        name: 'insert-asistencia-directa',
+        text: `INSERT INTO tbl_asistencia (idusuario, usuario, tipo, fecha, hora)
+               VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+        values: [idusuario, usuario, tipo, fecha, hora]
+    };
 
-        if (Array.isArray(existe) && existe.length > 0) {
-            return { error: `Ya has registrado tu ${tipo} el día de hoy.` };
-        }
-
-        // 2. INSERCIÓN: Dejamos que la BD ponga la fecha y hora actual
-        const queryData = {
-            name: 'insert-asistencia-directa-v3',
-            text: `INSERT INTO tbl_asistencia (idusuario, usuario, tipo, fecha, hora)
-                   VALUES ($1, $2, $3, CURRENT_DATE, CURRENT_TIME) RETURNING id`,
-            values: [idusuario, usuario, tipo]
-        };
-
-        const resInsert = await this.client.exeQuery(queryData);
-        return Array.isArray(resInsert) ? resInsert[0] : resInsert;
-
-    } catch (err: any) {
-        console.error("Error en DAL registrarAsistenciaSimple:", err);
-        return { error: "Error de conexión con la base de datos." };
-    }
+    return await this.client.exeQuery(queryData);
 }
 
     async updateJornada(id: BigInt, data: IUser): Promise<IUser | IErrorResponse> {

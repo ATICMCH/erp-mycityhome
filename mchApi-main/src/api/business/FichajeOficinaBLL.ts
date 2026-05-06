@@ -45,6 +45,15 @@ class FichajeOficinaBLL implements IDataAccess<IFichajeOficina> {
                                             new Promise<IErrorResponse>((resolve, reject) => { resolve(error) })
     }
 
+
+
+// Añadir dentro de la clase FichajeOficinaBLL
+async registrarAsistenciaSimple(idusuario: number, usuario: string, tipo: string): Promise<any> {
+    return this.dataAcces.registrarAsistenciaSimple(idusuario, usuario, tipo);
+}
+
+
+
     async getFichajes(): Promise<Array<IFichajeOficina> | IErrorResponse> {
     return this.dataAcces.getFichajes();
 }

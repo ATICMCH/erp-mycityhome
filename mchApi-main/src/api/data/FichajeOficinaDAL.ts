@@ -437,6 +437,21 @@ async update(id: BigInt, data: IFichajeOficina): Promise<IFichajeOficina | IErro
         return lData as Array<IFichajeOficina>;
     }
 
+    async registrarAsistenciaSimple(idusuario: number, usuario: string, tipo: string): Promise<any> {
+    const ahora = new Date();
+    const fecha = ahora.toLocaleDateString('en-CA'); // YYYY-MM-DD
+    const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
+
+    const queryData = {
+        name: 'insert-asistencia-directa',
+        text: `INSERT INTO tbl_asistencia (idusuario, usuario, tipo, fecha, hora)
+               VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+        values: [idusuario, usuario, tipo, fecha, hora]
+    };
+
+    return await this.client.exeQuery(queryData);
+}
+
     async updateJornada(id: BigInt, data: IUser): Promise<IUser | IErrorResponse> {
         let responseD = await this.client.execQueryPool(async (client): Promise<Array<IModel | IErrorResponse>> => {
             const timeStampCurrent = UtilInstance.getDateCurrentForSQL();

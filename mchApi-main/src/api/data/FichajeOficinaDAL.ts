@@ -439,43 +439,35 @@ async update(id: BigInt, data: IFichajeOficina): Promise<IFichajeOficina | IErro
 
 async registrarAsistenciaSimple(idusuario: number, usuario: string, tipo: string): Promise<any> {
     try {
-        const ahora = new Date();
-        // Usamos una fecha limpia sin horas para la columna DATE
-        const fechaSql = ahora.toISOString().split('T')[0]; 
-        const horaSql = ahora.toLocaleTimeString('es-ES', { hour12: false });
-
-        // 1. VALIDACIÓN: ¿Ya existe hoy?
+        // 1. VALIDACIÓN: Usamos CURRENT_DATE de PostgreSQL para que no haya fallos de zona horaria
         const sqlCheck = {
-            name: 'check-asistencia-diaria-v2',
+            name: 'check-asistencia-diaria-v3',
             text: `SELECT id FROM tbl_asistencia 
-                   WHERE idusuario = $1 AND tipo = $2 AND fecha = $3 
+                   WHERE idusuario = $1 AND tipo = $2 AND fecha = CURRENT_DATE 
                    LIMIT 1`,
-            values: [idusuario, tipo, fechaSql]
+            values: [idusuario, tipo]
         };
 
         const existe: any = await this.client.exeQuery(sqlCheck);
 
-        // Si 'existe' es un array con datos, es que ya fichó
         if (Array.isArray(existe) && existe.length > 0) {
             return { error: `Ya has registrado tu ${tipo} el día de hoy.` };
         }
 
-        // 2. INSERCIÓN
+        // 2. INSERCIÓN: Dejamos que la BD ponga la fecha y hora actual
         const queryData = {
-            name: 'insert-asistencia-directa-v2',
+            name: 'insert-asistencia-directa-v3',
             text: `INSERT INTO tbl_asistencia (idusuario, usuario, tipo, fecha, hora)
-                   VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-            values: [idusuario, usuario, tipo, fechaSql, horaSql]
+                   VALUES ($1, $2, $3, CURRENT_DATE, CURRENT_TIME) RETURNING id`,
+            values: [idusuario, usuario, tipo]
         };
 
         const resInsert = await this.client.exeQuery(queryData);
-        
-        // Devolvemos el primer resultado del array si todo fue bien
         return Array.isArray(resInsert) ? resInsert[0] : resInsert;
 
     } catch (err: any) {
         console.error("Error en DAL registrarAsistenciaSimple:", err);
-        return { error: "Error interno al procesar el registro en base de datos." };
+        return { error: "Error de conexión con la base de datos." };
     }
 }
 

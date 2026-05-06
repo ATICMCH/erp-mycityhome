@@ -1,64 +1,39 @@
 import nc from "next-connect";
 import { NextApiRequest, NextApiResponse } from "next";
-import FichajeOficinaBLL from "@/api/business/FichajeOficinaBLL";
+import DbConnection from "@/api/helpers/DbConnection";
 
-const setCorsHeaders = (res: NextApiResponse) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Token, idlogin');
-};
+const handler = nc<NextApiRequest, NextApiResponse>()
+.post(async (req, res) => {
+    const { idusuario, usuario, tipo } = req.body;
+    const db = new DbConnection(false);
 
-const handler = nc({
-    onError: (err: any, req: NextApiRequest, res: NextApiResponse) => {
-        setCorsHeaders(res);
-        res.status(500).json({ error: err?.message || "Error Interno" });
-    }
-})
-.options((req, res) => { setCorsHeaders(res); res.status(200).end(); })
-.use((req, res, next) => { setCorsHeaders(res); next(); })
-.post(async (req: NextApiRequest, res: NextApiResponse) => {
     try {
-        const item = req.body;
-        const bll = new (FichajeOficinaBLL as any)(BigInt(item.idusuario), 0, false);
+        const ahora = new Date();
+        const fecha = ahora.toISOString().split('T')[0];
+        const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
+
+        // VALIDACIÓN: Evitar que el usuario pulse dos veces seguidas el mismo botón (60 segundos de margen)
+        const sqlCheck = `SELECT id FROM tbl_asistencia WHERE idusuario = $1 AND tipo = $2 AND fecha = $3 AND hora > (NOW() - INTERVAL '1 minute')::time LIMIT 1`;
+        const exists: any = await db.exeQuery({ text: sqlCheck, values: [idusuario, tipo, fecha] });
+
+        if (exists && exists.length > 0) {
+            return res.status(429).json({ error: "Espera un momento antes de volver a fichar." });
+        }
+
+        // INSERCIÓN DIRECTA
+        const sqlInsert = `
+            INSERT INTO tbl_asistencia (idusuario, usuario, tipo, fecha, hora)
+            VALUES ($1, $2, $3, $4, $5) RETURNING id
+        `;
         
-        // 1. Buscamos si existe hoy
-        const response: any = await bll.getFichajes();
-        const lista = Array.isArray(response) ? response : (response?.data || []);
-        const yaExiste = lista.find((f: any) => 
-            String(f.idusuario) === String(item.idusuario) && String(f.fecha).includes(item.fecha)
-        );
+        await db.exeQuery({
+            text: sqlInsert,
+            values: [idusuario, usuario, tipo, fecha, hora]
+        });
 
-        if (yaExiste) return res.status(409).json({ error: "Ya has fichado hoy." });
-
-        // 2. Insertamos directamente
-        const result = await bll.insert(item);
-        res.status(200).json({ data: result });
+        res.status(200).json({ data: "Registro guardado correctamente" });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-})
-.put(async (req: NextApiRequest, res: NextApiResponse) => {
-    try {
-        const { idusuario, [ 'salida' ]: timeSalida } = req.body;
-        const hoy = timeSalida.split(' ')[0];
-        const bll = new (FichajeOficinaBLL as any)(BigInt(idusuario), 0, false);
-        
-        const response: any = await bll.getFichajes();
-        const lista = Array.isArray(response) ? response : (response?.data || []);
-
-        const registro = lista.find((f: any) => 
-            String(f.idusuario) === String(idusuario) && 
-            String(f.fecha).includes(hoy) &&
-            (!f.salida || String(f.salida).trim() === '' || String(f.salida) === 'null')
-        );
-
-        if (!registro) return res.status(400).json({ error: "No se encontró entrada abierta hoy." });
-
-        // Actualizamos el objeto encontrado
-        registro.salida = timeSalida;
-        const result = await bll.update(BigInt(registro.id), registro);
-        res.status(200).json({ data: result });
-    } catch (error: any) {
+        console.error("Error en tbl_asistencia:", error);
         res.status(500).json({ error: error.message });
     }
 });

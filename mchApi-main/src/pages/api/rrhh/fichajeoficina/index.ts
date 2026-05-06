@@ -11,7 +11,7 @@ const setCorsHeaders = (res: NextApiResponse) => {
 const handler = nc({
     onError: (err: any, req: NextApiRequest, res: NextApiResponse) => {
         setCorsHeaders(res);
-        res.status(500).json({ error: err?.message || "Error interno" });
+        res.status(500).json({ error: err?.message || "Error Interno" });
     }
 })
 .options((req, res) => { setCorsHeaders(res); res.status(200).end(); })
@@ -21,26 +21,26 @@ const handler = nc({
         const item = req.body;
         const bll = new (FichajeOficinaBLL as any)(BigInt(item.idusuario), 0, false);
         
+        // 1. Buscamos si existe hoy
         const response: any = await bll.getFichajes();
         const lista = Array.isArray(response) ? response : (response?.data || []);
-
         const yaExiste = lista.find((f: any) => 
-            String(f.idusuario) === String(item.idusuario) && 
-            String(f.fecha).includes(item.fecha)
+            String(f.idusuario) === String(item.idusuario) && String(f.fecha).includes(item.fecha)
         );
 
         if (yaExiste) return res.status(409).json({ error: "Ya has fichado hoy." });
 
+        // 2. Insertamos directamente
         const result = await bll.insert(item);
-        return res.status(200).json({ data: result });
+        res.status(200).json({ data: result });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
 })
 .put(async (req: NextApiRequest, res: NextApiResponse) => {
     try {
-        const { idusuario, salida } = req.body;
-        const hoy = salida.split(' ')[0];
+        const { idusuario, [ 'salida' ]: timeSalida } = req.body;
+        const hoy = timeSalida.split(' ')[0];
         const bll = new (FichajeOficinaBLL as any)(BigInt(idusuario), 0, false);
         
         const response: any = await bll.getFichajes();
@@ -52,12 +52,12 @@ const handler = nc({
             (!f.salida || String(f.salida).trim() === '' || String(f.salida) === 'null')
         );
 
-        if (!registro) return res.status(400).json({ error: "No se encontró entrada abierta." });
+        if (!registro) return res.status(400).json({ error: "No se encontró entrada abierta hoy." });
 
-        registro.salida = salida;
-        // IMPORTANTE: Aseguramos que el ID sea BigInt para el método update
+        // Actualizamos el objeto encontrado
+        registro.salida = timeSalida;
         const result = await bll.update(BigInt(registro.id), registro);
-        return res.status(200).json({ data: result });
+        res.status(200).json({ data: result });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }

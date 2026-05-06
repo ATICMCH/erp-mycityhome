@@ -13,7 +13,9 @@ const FichajeBoton = () => {
         setCargando(true);
         try {
             const ahora = new Date();
-            const hoy = ahora.toISOString().split('T')[0];
+            const hoy = ahora.getFullYear() + '-' + 
+                        String(ahora.getMonth() + 1).padStart(2, '0') + '-' + 
+                        String(ahora.getDate()).padStart(2, '0');
             const hora = ahora.toLocaleTimeString('es-ES', { hour12: false });
             const ts = `${hoy} ${hora}`;
 
@@ -24,10 +26,11 @@ const FichajeBoton = () => {
                     idusuario: user.id,
                     usuario: user.nombre_completo || user.nombre || 'Usuario',
                     fecha: hoy,
-                    [tipo]: ts, // Enviará 'entrada' o 'salida' según el botón
+                    [tipo]: ts, // Envía 'entrada' o 'salida'
                     idusuario_ultimo_cambio: user.id,
                     estado: 1,
                     tipo_ejecucion: 'manual',
+                    observacion: 'Fichaje manual desde botón',
                     jornada: user.jornada || 'Jornada Completa',
                     horario: user.horario || 'HC'
                 })
@@ -47,7 +50,7 @@ const FichajeBoton = () => {
     };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '85%' }}>
             <button onClick={() => registrar('entrada')} disabled={cargando} style={{ backgroundColor: '#4CAF50', color: 'white', padding: '10px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                 {cargando ? '...' : '✅ Entrar'}
             </button>

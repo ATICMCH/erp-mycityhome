@@ -13,24 +13,20 @@ import AsistenciasModal from "./rrhh/fichaje/AsistenciasModal"
 
 const MenuLeftContainer = ({ data, itemSelected }: { data: Array<MenuLeftType>, itemSelected: string }) => {
     const router = useRouter()
-    
-    // CORRECCIÓN: Extraemos 'currentRol' que es la variable global del rol activo
-    const { changeCurrentRol, setUserData, userData, currentRol } = useContext(UserContext)
-    
+    const { changeCurrentRol, setUserData } = useContext(UserContext)
     const [isOpen, setIsOpen] = useState(false)
     const [isAsistenciasModalOpen, setIsAsistenciasModalOpen] = useState(false)
 
-    // Obtenemos el usuario para el nombre
-    const user = typeof userData === 'function' ? userData() : userData;
+    // ESTRATEGIA INFALIBLE: Detectar el rol por la ruta de navegación (URL)
+    // Si estás en /aticmaster/... el rol es aticmaster
+    const path = router.asPath.toLowerCase();
+    const esAdminAsistencia = path.includes('aticmaster') || path.includes('rrhhmaster');
 
-    // VALIDACIÓN: Usamos 'currentRol' en lugar de 'user.idrol'
-    const rolActual = currentRol?.toString().toLowerCase() || '';
-    const esAdminAsistencia = rolActual === 'aticmaster' || rolActual === 'rrhhmaster';
-
-    // DEBUG para confirmar que ahora sí llega el rol
+    // DEBUG: Para que veas en consola si la URL está siendo detectada
     useEffect(() => {
-        console.log("✅ Rol detectado en el contexto:", currentRol);
-    }, [currentRol]);
+        console.log("📍 Ruta actual detectada:", path);
+        console.log("🔓 ¿Es maestro?:", esAdminAsistencia);
+    }, [path]);
 
     const handleExit = async () => {
         await api.get('/api/auth/logout')
@@ -48,6 +44,7 @@ const MenuLeftContainer = ({ data, itemSelected }: { data: Array<MenuLeftType>, 
                 onClose={() => setIsAsistenciasModalOpen(false)} 
             />
 
+            {/* Mobile menu button */}
             <button 
                 onClick={() => setIsOpen(!isOpen)}
                 className="lg:hidden fixed left-0 top-[12vh] z-50 bg-blue-600 p-2 rounded-r-lg shadow-lg"
@@ -78,7 +75,7 @@ const MenuLeftContainer = ({ data, itemSelected }: { data: Array<MenuLeftType>, 
                             )
                         })}
 
-                        {/* EL BOTÓN AHORA DEBERÍA APARECER */}
+                        {/* BOTÓN DE ASISTENCIAS BASADO EN RUTA */}
                         {esAdminAsistencia && (
                             <div 
                                 className="transform scale-90 lg:scale-100 mt-2 border-t border-white/20 pt-2 cursor-pointer"

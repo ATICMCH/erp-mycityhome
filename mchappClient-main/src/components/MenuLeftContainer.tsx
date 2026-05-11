@@ -9,7 +9,7 @@ import WebMCH24 from "./webMCH24"
 import FilterInstance from "@/client/helpers/Filter"
 import FichajeBoton from "./FichajeBoton"
 // 1. Importar el nuevo Modal (Ajusta la ruta si lo guardaste en otro sitio)
-import AsistenciasModal from "../rrhh/fichaje/AsistenciasModal" 
+import AsistenciasModal from "@/components/rrhh/fichaje/AsistenciasModal"
 
 const MenuLeftContainer = ({ data, itemSelected }: { data: Array<MenuLeftType>, itemSelected: string }) => {
     const router = useRouter()

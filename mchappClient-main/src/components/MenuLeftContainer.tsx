@@ -7,13 +7,20 @@ import { api } from '../client/helpers/Util'
 import Link from 'next/link'
 import WebMCH24 from "./webMCH24"
 import FilterInstance from "@/client/helpers/Filter"
-// 1. IMPORTAMOS EL NUEVO COMPONENTE DE FICHAJE
 import FichajeBoton from "./FichajeBoton"
+// 1. Importar el nuevo Modal (Ajusta la ruta si lo guardaste en otro sitio)
+import AsistenciasModal from "../rrhh/fichaje/AsistenciasModal" 
 
 const MenuLeftContainer = ({ data, itemSelected }: { data: Array<MenuLeftType>, itemSelected: string }) => {
     const router = useRouter()
-    const { changeCurrentRol, setUserData } = useContext(UserContext)
+    const { changeCurrentRol, setUserData, userData } = useContext(UserContext)
     const [isOpen, setIsOpen] = useState(false)
+    
+    // 2. Estado para controlar el PopUp de Asistencias
+    const [isAsistenciasModalOpen, setIsAsistenciasModalOpen] = useState(false)
+
+    const user = typeof userData === 'function' ? userData() : userData;
+    const esAdminAsistencia = user?.idrol === 'aticmaster' || user?.idrol === 'rrhhmaster';
 
     const handleExit = async () => {
         const response = await api.get('/api/auth/logout')
@@ -26,6 +33,12 @@ const MenuLeftContainer = ({ data, itemSelected }: { data: Array<MenuLeftType>, 
 
     return (
         <>
+            {/* 3. Inyectamos el Modal aquí fuera de la estructura del menú */}
+            <AsistenciasModal 
+                isOpen={isAsistenciasModalOpen} 
+                onClose={() => setIsAsistenciasModalOpen(false)} 
+            />
+
             {/* Mobile menu button */}
             <button 
                 onClick={() => setIsOpen(!isOpen)}
@@ -48,15 +61,15 @@ const MenuLeftContainer = ({ data, itemSelected }: { data: Array<MenuLeftType>, 
             {/* Menu container */}
             <div className={`
                 fixed lg:static top-[10vh] bottom-0 left-0 z-40
-                h-[90vh] lg:h-full w-[8rem] lg:w-[8rem] w-[6rem]
+                h-[90vh] lg:h-full w-[8rem] lg:w-[8rem]
                 c-rounded-large c-bg-primary
                 transform transition-transform duration-300 ease-in-out
                 ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
                 shadow-lg overflow-hidden
             `}>
                 <div className="h-full overflow-y-auto py-2 flex flex-col justify-between">
-                    <div className="grid grid-cols-1 lg:grid-cols-1 gap-1">
-                        {data.sort(el => el.order).map((item) => {
+                    <div className="grid grid-cols-1 gap-1">
+                        {data.sort((a, b) => (a.order || 0) - (b.order || 0)).map((item) => {
                             item.isActive = item.key === itemSelected
                             return (
                                 <div key={item.key} className="transform scale-90 lg:scale-100">
@@ -64,12 +77,28 @@ const MenuLeftContainer = ({ data, itemSelected }: { data: Array<MenuLeftType>, 
                                 </div>
                             )
                         })}
+
+                        {/* 4. BOTÓN PARA ABRIR EL MODAL */}
+                        {esAdminAsistencia && (
+                            <div 
+                                className="transform scale-90 lg:scale-100 mt-2 border-t border-blue-400 pt-2 cursor-pointer"
+                                onClick={() => setIsAsistenciasModalOpen(true)}
+                            >
+                                {PropBox({
+                                    key: 'admin-asistencias-modal',
+                                    label: 'Asistencias',
+                                    icon: 'calendar', 
+                                    path: '#', // Quitamos la ruta para que no navegue
+                                    isActive: isAsistenciasModalOpen, // Se marca activo si el modal está abierto
+                                    order: 99
+                                })}
+                            </div>
+                        )}
                     </div>
                     
                     {/* Contenedor inferior para botones de acción */}
                     <div className="mt-4 pb-4">
-                        {/* 2. AGREGAMOS LOS BOTONES DE FICHAJE AQUÍ */}
-                        <div className="mb-4 w-full flex justify-center">
+                        <div className="mb-4 w-full flex justify-center scale-75 lg:scale-90">
                             <FichajeBoton />
                         </div>
 

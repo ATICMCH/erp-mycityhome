@@ -52,6 +52,11 @@ async registrarAsistenciaSimple(idusuario: number, usuario: string, tipo: string
     return this.dataAcces.registrarAsistenciaSimple(idusuario, usuario, tipo);
 }
 
+async consultarAsistencias(filtros: any): Promise<any> {
+    // Llama al método del DAL que consulta la tabla tbl_asistencia
+    return await this.dataAcces.getAsistenciasAdmin(filtros);
+}
+
 
 
     async getFichajes(): Promise<Array<IFichajeOficina> | IErrorResponse> {

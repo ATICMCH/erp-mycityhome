@@ -36,6 +36,26 @@ const handler = nc<NextApiRequest, NextApiResponse>()
         console.error("🔥 Error API:", error.message);
         res.status(500).json({ error: error.message });
     }
-});
+})
+.get(async (req, res) => {
+    try {
+        const { usuario, tipo, fecha } = req.query;
+        // Instanciamos la lógica de negocio
+        const bll = new (FichajeOficinaBLL as any)(BigInt(1), 0, false);
+        
+        // Llamamos al método de consulta que ya tienes en el BLL
+        // Si no existe el método 'consultarAsistencias' en tu BLL, lo añadiremos en el siguiente paso
+        const data = await bll.consultarAsistencias({ 
+            usuario: usuario as string, 
+            tipo: tipo as string, 
+            fecha: fecha as string 
+        });
+
+        res.status(200).json({ data });
+    } catch (error: any) {
+        console.error("Error en API GET asistencias:", error);
+        res.status(500).json({ error: error.message });
+    }
+  });
 
 export default handler;

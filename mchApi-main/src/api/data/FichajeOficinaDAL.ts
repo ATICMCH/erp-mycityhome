@@ -48,6 +48,33 @@ class FichajeOficinaDAL implements IDataAccess<IFichajeOficina> {
         return (await this.client.exeQuery(queryData)) as Array<IFichajeOficina>;
     }
 
+    async getAsistenciasAdmin(filtros: { usuario?: string, tipo?: string, fecha?: string }): Promise<any[]> {
+    let text = `SELECT id, usuario, tipo, fecha, hora FROM tbl_asistencia WHERE 1=1`;
+    const values: any[] = [];
+    let count = 1;
+
+    if (filtros.usuario) {
+        text += ` AND usuario ILIKE $${count}`;
+        values.push(`%${filtros.usuario}%`);
+        count++;
+    }
+    if (filtros.tipo && filtros.tipo !== 'todos') {
+        text += ` AND tipo = $${count}`;
+        values.push(filtros.tipo);
+        count++;
+    }
+    if (filtros.fecha) {
+        text += ` AND fecha = $${count}`;
+        values.push(filtros.fecha);
+        count++;
+    }
+
+    text += ` ORDER BY fecha DESC, hora DESC LIMIT 200`;
+
+    // Ejecuta la query usando tu conexión actual
+    return await this.client.exeQuery({ text, values }) as any[];
+}
+
     async getById(id: BigInt): Promise<IFichajeOficina | IErrorResponse> {
         const queryData = {
             name: 'get-fichajeoficina-x-id',

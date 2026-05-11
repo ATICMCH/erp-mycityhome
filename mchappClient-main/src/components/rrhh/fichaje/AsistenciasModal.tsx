@@ -22,11 +22,19 @@ const AsistenciasModal: React.FC<AsistenciasModalProps> = ({ isOpen, onClose }) 
                 tipo: filtroTipo,
                 fecha: filtroFecha
             });
-            const res = await fetch(`http://185.252.233.57:3016/api/rrhh/fichajeoficina?${params}`);
+            
+            // CORRECCIÓN: Usamos ruta relativa para evitar bloqueos de CORS
+            const res = await fetch(`/api/rrhh/fichajeoficina?${params}`);
+            
+            if (!res.ok) {
+                throw new Error(`Error en servidor: ${res.status}`);
+            }
+
             const json = await res.json();
             setAsistencias(json.data || []);
+            
         } catch (error) {
-            console.error("Error cargando asistencias", error);
+            console.error("Error cargando asistencias:", error);
         } finally {
             setCargando(false);
         }
@@ -88,11 +96,11 @@ const AsistenciasModal: React.FC<AsistenciasModalProps> = ({ isOpen, onClose }) 
                             </thead>
                             <tbody>
                                 {cargando ? (
-                                    <tr><td colSpan={3} className="text-center p-10 text-slate-400">Cargando...</td></tr>
+                                    <tr><td colSpan={3} className="text-center p-10 text-slate-400">Cargando registros...</td></tr>
                                 ) : asistencias.length > 0 ? (
                                     asistencias.map((a: any) => (
                                         <tr key={a.id} className="hover:bg-slate-50">
-                                            <td className="p-3 border text-sm text-slate-700">{a.usuario}</td>
+                                            <td className="p-3 border text-sm text-slate-700 font-medium">{a.usuario}</td>
                                             <td className="p-3 border text-center">
                                                 <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${a.tipo === 'entrada' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{a.tipo}</span>
                                             </td>
@@ -102,7 +110,7 @@ const AsistenciasModal: React.FC<AsistenciasModalProps> = ({ isOpen, onClose }) 
                                         </tr>
                                     ))
                                 ) : (
-                                    <tr><td colSpan={3} className="text-center p-10 text-slate-400">No hay registros.</td></tr>
+                                    <tr><td colSpan={3} className="text-center p-10 text-slate-500 font-medium">No se encontraron registros de asistencia.</td></tr>
                                 )}
                             </tbody>
                         </table>

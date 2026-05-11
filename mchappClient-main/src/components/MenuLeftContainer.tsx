@@ -9,29 +9,28 @@ import Link from 'next/link'
 import WebMCH24 from "./webMCH24"
 import FilterInstance from "@/client/helpers/Filter"
 import FichajeBoton from "./FichajeBoton"
-// Asegúrate de que el modal esté en esta ruta o ajústala
 import AsistenciasModal from "./rrhh/fichaje/AsistenciasModal" 
 
 const MenuLeftContainer = ({ data, itemSelected }: { data: Array<MenuLeftType>, itemSelected: string }) => {
     const router = useRouter()
-    // 1. IMPORTANTE: Aseguramos que userData esté aquí
-    const { changeCurrentRol, setUserData, userData } = useContext(UserContext)
+    
+    // CORRECCIÓN: Extraemos 'currentRol' que es la variable global del rol activo
+    const { changeCurrentRol, setUserData, userData, currentRol } = useContext(UserContext)
+    
     const [isOpen, setIsOpen] = useState(false)
     const [isAsistenciasModalOpen, setIsAsistenciasModalOpen] = useState(false)
 
-    // 2. Obtenemos el usuario de forma segura
+    // Obtenemos el usuario para el nombre
     const user = typeof userData === 'function' ? userData() : userData;
 
-    // 3. LOG DE DEBUG: Abre la consola del navegador (F12) para ver esto
-    useEffect(() => {
-        if (user) {
-            console.log("🛠️ Usuario detectado en Menu:", user.username, "| Rol:", user.idrol);
-        }
-    }, [user]);
-
-    // 4. Lógica de permisos (convertimos a minúsculas para evitar fallos de matching)
-    const rolActual = user?.idrol?.toString().toLowerCase() || '';
+    // VALIDACIÓN: Usamos 'currentRol' en lugar de 'user.idrol'
+    const rolActual = currentRol?.toString().toLowerCase() || '';
     const esAdminAsistencia = rolActual === 'aticmaster' || rolActual === 'rrhhmaster';
+
+    // DEBUG para confirmar que ahora sí llega el rol
+    useEffect(() => {
+        console.log("✅ Rol detectado en el contexto:", currentRol);
+    }, [currentRol]);
 
     const handleExit = async () => {
         await api.get('/api/auth/logout')
@@ -44,13 +43,11 @@ const MenuLeftContainer = ({ data, itemSelected }: { data: Array<MenuLeftType>, 
 
     return (
         <>
-            {/* Modal de Asistencias */}
             <AsistenciasModal 
                 isOpen={isAsistenciasModalOpen} 
                 onClose={() => setIsAsistenciasModalOpen(false)} 
             />
 
-            {/* Botón menú móvil */}
             <button 
                 onClick={() => setIsOpen(!isOpen)}
                 className="lg:hidden fixed left-0 top-[12vh] z-50 bg-blue-600 p-2 rounded-r-lg shadow-lg"
@@ -72,7 +69,6 @@ const MenuLeftContainer = ({ data, itemSelected }: { data: Array<MenuLeftType>, 
             `}>
                 <div className="h-full overflow-y-auto py-2 flex flex-col justify-between">
                     <div className="grid grid-cols-1 gap-1">
-                        {/* Renderizado de items dinámicos */}
                         {data.sort((a, b) => (a.order || 0) - (b.order || 0)).map((item) => {
                             item.isActive = item.key === itemSelected
                             return (
@@ -82,16 +78,16 @@ const MenuLeftContainer = ({ data, itemSelected }: { data: Array<MenuLeftType>, 
                             )
                         })}
 
-                        {/* 5. BOTÓN MANUAL DE ASISTENCIAS */}
+                        {/* EL BOTÓN AHORA DEBERÍA APARECER */}
                         {esAdminAsistencia && (
                             <div 
-                                className="transform scale-90 lg:scale-100 mt-2 border-t border-white/20 pt-2 cursor-pointer hover:opacity-80 transition-opacity"
+                                className="transform scale-90 lg:scale-100 mt-2 border-t border-white/20 pt-2 cursor-pointer"
                                 onClick={() => setIsAsistenciasModalOpen(true)}
                             >
                                 {PropBox({
                                     key: 'admin-asistencias-modal',
                                     label: 'Asistencias',
-                                    icon: 'calendar', // Asegúrate que tu PropBox use este nombre de icono
+                                    icon: 'calendar', 
                                     path: '#',
                                     isActive: isAsistenciasModalOpen,
                                     order: 99
@@ -105,12 +101,7 @@ const MenuLeftContainer = ({ data, itemSelected }: { data: Array<MenuLeftType>, 
                             <FichajeBoton />
                         </div>
 
-                        <Link 
-                            onClick={handleExit} 
-                            href="#" 
-                            className="link-menu c-bg-primary mt-2 rounded-lg flex flex-col items-center px-1 transform scale-90 lg:scale-100"
-                            style={{ height: '4rem' }}
-                        >
+                        <Link onClick={handleExit} href="#" className="link-menu c-bg-primary mt-2 rounded-lg flex flex-col items-center px-1 transform scale-90 lg:scale-100" style={{ height: '4rem' }}>
                             <WebMCH24 color="white" />
                             <h3 className="text-white text-xs lg:text-sm">Salir</h3>
                         </Link>

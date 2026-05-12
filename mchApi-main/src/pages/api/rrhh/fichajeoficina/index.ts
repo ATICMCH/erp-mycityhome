@@ -20,11 +20,7 @@ const handler = nc<NextApiRequest, NextApiResponse>()
 .post(async (req: NextApiRequest, res: NextApiResponse) => {
     try {
         const { idusuario, usuario, tipo } = req.body;
-        
-        // Instanciamos tu BLL (usamos 0 y false como parámetros por defecto)
-        const bll = new (FichajeOficinaBLL as any)(BigInt(idusuario), 0, false);
-
-        // Llamamos al nuevo método que interactúa con la base de datos de forma segura
+        const bll = new (FichajeOficinaBLL as any)(BigInt(idusuario || 1), 0, false);
         const result = await bll.registrarAsistenciaSimple(idusuario, usuario, tipo);
 
         if (result && !result.error) {
@@ -33,18 +29,16 @@ const handler = nc<NextApiRequest, NextApiResponse>()
             throw new Error(result.error || "Error desconocido en BD");
         }
     } catch (error: any) {
-        console.error("🔥 Error API:", error.message);
+        console.error("🔥 Error API POST:", error.message);
         res.status(500).json({ error: error.message });
     }
 })
-.get(async (req, res) => {
+// --- BLOQUE AÑADIDO PARA EL MODAL ---
+.get(async (req: NextApiRequest, res: NextApiResponse) => {
     try {
         const { usuario, tipo, fecha } = req.query;
-        // Instanciamos la lógica de negocio
         const bll = new (FichajeOficinaBLL as any)(BigInt(1), 0, false);
         
-        // Llamamos al método de consulta que ya tienes en el BLL
-        // Si no existe el método 'consultarAsistencias' en tu BLL, lo añadiremos en el siguiente paso
         const data = await bll.consultarAsistencias({ 
             usuario: usuario as string, 
             tipo: tipo as string, 
@@ -53,9 +47,9 @@ const handler = nc<NextApiRequest, NextApiResponse>()
 
         res.status(200).json({ data });
     } catch (error: any) {
-        console.error("Error en API GET asistencias:", error);
+        console.error("🔥 Error API GET:", error.message);
         res.status(500).json({ error: error.message });
     }
-  });
+});
 
 export default handler;

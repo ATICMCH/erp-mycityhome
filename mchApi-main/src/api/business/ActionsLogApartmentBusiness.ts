@@ -354,11 +354,11 @@ class ActionsLogApartmentBusiness implements IDataAccess<IActionsLogApartment> {
                               field:'codigo', 
                               msg: 'El campo codigo [code_data] es obligatorio!' } 
                         )
-                  } else data.code_data.codigo.match(/^[0-9]{6}$/) || 
+                  } else data.code_data.codigo.match(/^[0-9]{8}$/) || 
                   ( error.data?.push( {   type: Constants.error_type_custom as ErrorFieldType,
                                           code: '', 
                                           field:'codigo', 
-                                          msg: 'El campo codigo [code_data] debe contener 6 digitos!!' } 
+                                          msg: 'El campo codigo [code_data] debe contener 8 digitos!!' } 
                                     ) 
                   )
 

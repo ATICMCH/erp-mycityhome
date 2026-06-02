@@ -220,7 +220,7 @@ const GestionPiso = {
     
     const dayF = elVigencia ? parseInt(elVigencia.value.trim()) : 0;
       const codeManual = elCodigo ? elCodigo.value.trim() : '';
-      const codeF = codeManual || Util.generateCode();
+      const codeF = codeManual || Util.generateCode(8);
 
     // 2. VALIDACIONES
     if (!dayF || dayF <= 0) {
@@ -228,8 +228,8 @@ const GestionPiso = {
         return;
     }
 
-      if (codeManual && !codeManual.match(/^[0-9]{6}$/)) {
-            Util.showErrorValidate(actionExec, 'Debes ingresar un código de 6 dígitos');
+      if (codeManual && !codeManual.match(/^[0-9]{8}$/)) {
+            Util.showErrorValidate(actionExec, 'Debes ingresar un código de 8 dígitos');
             return;
       }
 
@@ -671,7 +671,7 @@ const GestionPiso = {
       },
 
       generateCode: () => {
-            document.getElementById('codigo').value = Util.generateCode();
+            document.getElementById('codigo').value = Util.generateCode(8);
       },
 
       generateTimeStamp: () => {

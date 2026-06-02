@@ -1036,7 +1036,16 @@ app.post('/newCodeDirect', auth, async (req, res) => {
     let idTypeCode = parseInt((req.body.idTypeCode || '0').toString()) || 0
 
     if (!idDevice || !idPiso || !/^[0-9]{8}$/.test(code) || !(days > 0)) {
-        res.status(400).json({ status: 0, msg: 'Datos inválidos para crear código' })
+        const invalidFields = []
+        if (!idDevice) invalidFields.push('idDevice')
+        if (!idPiso) invalidFields.push('idPiso')
+        if (!/^[0-9]{8}$/.test(code)) invalidFields.push('code')
+        if (!(days > 0)) invalidFields.push('days')
+        res.status(400).json({
+            status: 0,
+            msg: `Datos inválidos para crear código: ${invalidFields.join(', ')}`,
+            data: { idDevice, idPiso, code, days, invalidFields }
+        })
         return
     }
 

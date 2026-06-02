@@ -253,13 +253,21 @@ const GestionPiso = {
             idTypeCode: elTypeCode ? parseInt(elTypeCode.value.trim()) : undefined
         })
     })
-    .then(res => res.json())
-    .then(res => {
+      .then(async (response) => {
+            const res = await response.json().catch(() => ({}));
         const codeAccion = Util.getCodeAlert(actionExec);
         const msgOK = document.getElementById(`msgOK_${codeAccion}`);
         const msgKO = document.getElementById(`msgKO_${codeAccion}`);
 
-        if (res.status === 1 || res.data) {
+            if (!response.ok || res.status !== 1) {
+                  const msgError = res.msg || res.error || 'Error al crear el código';
+                  msgKO.innerHTML = msgError;
+                  Util.showAlert(`alertKO_${codeAccion}`);
+                  Util.hideAlert(`alertOK_${codeAccion}`);
+                  return;
+            }
+
+            if (res.status === 1) {
             // 4. EXTRAEMOS EL PIN REAL MATEMÁTICO DESDE EL BACKEND
             let pinWeLock = codeF;
             if (res.data && res.data.code_data && res.data.code_data.codigo) {
@@ -274,10 +282,6 @@ const GestionPiso = {
             Util.showAlert(`alertOK_${codeAccion}`);
             Util.hideAlert(`alertKO_${codeAccion}`);
             GestionPiso.clearForm();
-        } else {
-            msgKO.innerHTML = res.msg || 'Error al crear el código';
-            Util.showAlert(`alertKO_${codeAccion}`);
-            Util.hideAlert(`alertOK_${codeAccion}`);
         }
     })
     .catch((err) => {

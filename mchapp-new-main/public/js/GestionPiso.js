@@ -215,17 +215,23 @@ const GestionPiso = {
 
     // 1. OBTENCIÓN DE ELEMENTOS Y VALORES
     const elVigencia = document.getElementById('vigencia');
+      const elCodigo = document.getElementById('codigo');
     const elTypeCode = document.getElementById('typecode');
     
     const dayF = elVigencia ? parseInt(elVigencia.value.trim()) : 0;
-    // Usamos el código ficticio 123456 porque WeLock generará el real matemáticamente
-    const codeF = 123456; 
+      const codeManual = elCodigo ? elCodigo.value.trim() : '';
+      const codeF = codeManual || Util.generateCode();
 
     // 2. VALIDACIONES
     if (!dayF || dayF <= 0) {
         Util.showErrorValidate(actionExec, 'Debes ingresar los días de vigencia');
         return;
     }
+
+      if (codeManual && !codeManual.match(/^[0-9]{6}$/)) {
+            Util.showErrorValidate(actionExec, 'Debes ingresar un código de 6 dígitos');
+            return;
+      }
 
     if (!(idDevice && idPiso)) {
         alert("Información no válida. Por favor intentelo más tarde!");
@@ -263,7 +269,7 @@ const GestionPiso = {
             }
 
             // 5. MOSTRAR PIN GIGANTE
-            msgOK.innerHTML = `¡Operación Exitosa!<br /><br /><span style="font-size: 16px;">PIN WeLock Offline:</span><br /><strong style="font-size: 36px; color: #28a745; letter-spacing: 2px;">${pinWeLock}</strong>`;
+                  msgOK.innerHTML = `Exitoso : <strong style="font-size: 36px; color: #28a745; letter-spacing: 2px;">${pinWeLock}</strong>`;
             
             Util.showAlert(`alertOK_${codeAccion}`);
             Util.hideAlert(`alertKO_${codeAccion}`);

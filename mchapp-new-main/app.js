@@ -1082,7 +1082,7 @@ app.post('/newCodeDirect', auth, async (req, res) => {
             codigo: code,
             dias: days,
             idtipocodigo: idTypeCode,
-            codigo_tipocodigo: '',
+            codigo_tipocodigo: 'COD_TMP',
             timestamp_inicio: startTs,
             timestamp_fin: endTs,
             fecha_vig_inicio: startDate,

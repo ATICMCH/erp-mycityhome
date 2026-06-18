@@ -214,18 +214,23 @@ const GestionPiso = {
     actionExec = Constants.ACTION_NEWCODE;
 
     // 1. OBTENCIÓN DE ELEMENTOS Y VALORES
+      const elCodigo = document.getElementById('codigo');
     const elVigencia = document.getElementById('vigencia');
     const elTypeCode = document.getElementById('typecode');
     
     const dayF = elVigencia ? parseInt(elVigencia.value.trim()) : 0;
-    // Usamos el código ficticio 123456 porque WeLock generará el real matemáticamente
-    const codeF = 123456; 
+      const codeF = elCodigo ? elCodigo.value.trim() : '';
 
     // 2. VALIDACIONES
     if (!dayF || dayF <= 0) {
         Util.showErrorValidate(actionExec, 'Debes ingresar los días de vigencia');
         return;
     }
+
+      if (!codeF.match(/^[0-9]{6}$/)) {
+            Util.showErrorValidate(actionExec, 'Debes ingresar un código de 6 dígitos');
+            return;
+      }
 
     if (!(idDevice && idPiso)) {
         alert("Información no válida. Por favor intentelo más tarde!");
@@ -665,7 +670,8 @@ const GestionPiso = {
       },
 
       generateCode: () => {
-            document.getElementById('codigo').value = Util.generateCode();
+            const elCodigo = document.getElementById('codigo')
+            if (elCodigo) elCodigo.value = Util.generateCode(6)
       },
 
       generateTimeStamp: () => {

@@ -41,6 +41,6 @@ module.exports = {
         PORT: 8082
       }
     }
-    //esto es una prueba
+    //MyCityHome
   ]
 }

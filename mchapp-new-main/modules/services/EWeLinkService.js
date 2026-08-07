@@ -26,16 +26,17 @@ class EWeLinkService {
             return dataResult
       }
 
-      async setStatusByIdDevice(idDevice) {
+      async setStatusByIdDevice(idDevice, pulseMs) {
             let endPointApi = `${ApiConfigurationInstance.pathApi}/api/public/devices/${idDevice}/sonoff/status`
 
             if ( !endPointApi ) return []
             let dataResult = { data: [] }
             try {
-                  console.log('🟦 [EWeLinkService] POST', endPointApi)
+                  console.log('🟦 [EWeLinkService] POST', endPointApi, pulseMs ? `(pulso ${pulseMs}ms)` : '')
                   const res = await fetch( endPointApi,{
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json'}
+                        headers: { 'Content-Type': 'application/json'},
+                        body: JSON.stringify(pulseMs ? { pulseMs } : {})
                   })
                   console.log('🟦 [EWeLinkService] POST status:', res.status)
                   const text = await res.text()

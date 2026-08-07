@@ -86,10 +86,11 @@ export type resulteWeLink = {
             name?: string,
             deviceid?: string,
             online?: boolean,
-            params:
+            params?:
             {
-                  switch: string,
-                  pulse: string
+                  switch?: string,
+                  pulse?: string,
+                  switches?: Array<{ outlet: number, switch: string }>
             }
       }
 }
@@ -99,8 +100,9 @@ export type deviceWeLink = {
       deviceid: string,
       online: boolean,
       params: {
-            switch: string,
-            pulse: string
+            switch?: string,
+            pulse?: string,
+            switches?: Array<{ outlet: number, switch: string }>
       }
 }
 

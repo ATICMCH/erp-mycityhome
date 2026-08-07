@@ -174,9 +174,17 @@ const GestionOficina = {
     },
 
 
-    actionOpenPortal: async () => {
+    actionOpenPortal: async (idDevice = 0) => {
+        if (!idDevice) {
+            alert("Información no válida. Por favor intentelo más tarde!")
+            return
+        }
         modalApp.show()
-        fetch('/openPortalSONOFF',{ method:'POST'}).then((res)=>res.json).then((res)=>{
+        fetch('/openPortalSONOFF', {
+            method: 'POST',
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idDevice })
+        }).then((res) => res.json()).then((res) => {
             console.log(res)
         }).finally(() => {
             setTimeout(async () => {

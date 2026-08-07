@@ -5,9 +5,9 @@ import UtilInstance from './Util'
 class EWeLink {
     public region = 'eu'
     public domain = 'eu-apia.coolkit.cc'
-    public familyId = '60ec2a2e860d94000952f43a'
-    public appId = 'nEbQNXDsW1em0jN3Z2t9MMOrBoLBfTgD' // hola soy jaqui debes de borrar la app id antes en ewelink dev de ahi creas una nueva app y cambias estos parametros luego debes autentificar como en el tutorial
-    public appSecret = 'X3RgnRo7lpSXqtpiUdzZg0hrlu96zcVg'
+    public familyId = '6a62726b331662073f6915f7'
+    public appId = '8ikE5qsC9DJq3EY6G0DbX2t9K32skRBa'
+    public appSecret = '3FrB5fcJq0kd44ZVrjYAC7yjSqtiB8HU'
 
     constructor() {}
 
@@ -150,7 +150,8 @@ class EWeLink {
                         online: el.itemData.online,
                         params: {
                             switch: el.itemData.params.switch,
-                            pulse: el.itemData.params.pulse
+                            pulse: el.itemData.params.pulse,
+                            switches: el.itemData.params.switches
                         }
                     }
                     result.push(data)
@@ -242,7 +243,7 @@ class EWeLink {
         let path = `https://${EWeLinkInstance.domain}/v2/device/thing/status`;
         
         const headers: Record<string, string> = {
-            'X-CK-Appid': 'nEbQNXDsW1em0jN3Z2t9MMOrBoLBfTgD',
+            'X-CK-Appid': EWeLinkInstance.appId,
             'X-CK-Nonce': `${Math.random().toString(36).substring(2, 10)}`,
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -288,6 +289,52 @@ class EWeLink {
 
         } catch (error) {
             console.error('🔴 [EWELINK] Error crítico:', error instanceof Error ? error.message : error);
+        }
+
+        return result;
+    }
+
+    /**
+     * Enciende el relé, espera pulseMs y lo apaga solo — simula pulsar un botón físico
+     * (portales/telefonillos), en vez de dejarlo encendido como un interruptor normal.
+     */
+    async openPulse(token: string, idDevice: string, pulseMs: number = 3000): Promise<resulteWeLink> {
+        let result: resulteWeLink = { error: -1, msg: 'Error desconocido!!' };
+
+        const statusDevice = await EWeLinkInstance.getCurrentStatus(token, idDevice);
+        if (statusDevice.error !== 0) return statusDevice;
+
+        let path = `https://${EWeLinkInstance.domain}/v2/device/thing/status`;
+        const headers: Record<string, string> = {
+            'X-CK-Appid': EWeLinkInstance.appId,
+            'X-CK-Nonce': `${Math.random().toString(36).substring(2, 10)}`,
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        };
+
+        const currentParams: any = statusDevice.data?.params || {};
+        const isMultiCh = !!currentParams.switches;
+
+        const sendState = async (state: 'on' | 'off'): Promise<resulteWeLink> => {
+            const data: any = isMultiCh
+                ? { type: 1, id: idDevice, params: { switches: [{ outlet: 0, switch: state }] } }
+                : { type: 1, id: idDevice, params: { switch: state } };
+            headers['X-CK-Nonce'] = `${Math.random().toString(36).substring(2, 10)}`;
+            const response = await axios({ url: path, method: 'POST', headers, data: JSON.stringify(data) });
+            return response.data as resulteWeLink;
+        };
+
+        try {
+            console.log(`[EWELINK] Pulso: encendiendo...`);
+            const openResult = await sendState('on');
+            result = { ...result, error: openResult.error, msg: openResult.msg, data: openResult.data };
+
+            await new Promise(resolve => setTimeout(resolve, pulseMs));
+
+            console.log(`[EWELINK] Pulso: apagando tras ${pulseMs}ms...`);
+            await sendState('off');
+        } catch (error) {
+            console.error('🔴 [EWELINK] Error crítico en openPulse:', error instanceof Error ? error.message : error);
         }
 
         return result;

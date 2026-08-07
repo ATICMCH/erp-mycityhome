@@ -1127,8 +1127,8 @@ app.post('/openPortalSONOFF', async (req, response) => {
         
         console.log(`[Petición al ERP] Solicitando abrir puerta para ID de BD: ${idDeviceDB}`);
 
-        // Le pedimos al ERP que abra la puerta
-        let resERP = await EWeLinkServiceInstance.setStatusByIdDevice(idDeviceDB);
+        // Le pedimos al ERP que abra la puerta (pulso: se enciende y se apaga solo a los 3s)
+        let resERP = await EWeLinkServiceInstance.setStatusByIdDevice(idDeviceDB, 3000);
 
         // Verificamos si el ERP nos devolvió un error
         if (resERP && resERP.data && resERP.data.error !== 0 && resERP.data.error !== undefined) {

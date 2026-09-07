@@ -117,6 +117,9 @@ export type MenuLeftType = {
     order: number
     menuPath: string
     codeIcon: string
+    // Para enlaces que salen de esta app (p.ej. ERP Task) en vez de navegar
+    // internamente con next/link.
+    openInNewTab?: boolean
 }
 
 //Menu DAContainer para info y mantenimiento

@@ -13,10 +13,22 @@ class AuthUserBusiness {
             this.dataAcces = new AuthUserDataAccess()
       }
 
-      authUser(email: string, password: string): Promise<IAuthUser | IErrorResponse> {
-            // Validaciones
-            password = UtilInstance.encryptDataHash256(password.trim())
-            return this.dataAcces.authUser(email, password)
+      async authUser(email: string, password: string): Promise<IAuthUser | IErrorResponse> {
+            const plainPassword = password.trim()
+            const result = await this.dataAcces.authUser(email, UtilInstance.encryptDataHash256(plainPassword))
+
+            // Login correcto: aprovechamos para sincronizar la tabla puente del
+            // login único (tbl_nuevo_login_erp) con la contraseña en texto plano,
+            // que solo tenemos en este instante. Si falla, no debe tumbar el login.
+            if (result && !(result as IErrorResponse).error) {
+                  try {
+                        await this.dataAcces.upsertLoginBridge(result as IAuthUser, plainPassword)
+                  } catch (err) {
+                        console.log('[login-bridge] no se pudo sincronizar tbl_nuevo_login_erp:', err)
+                  }
+            }
+
+            return result
       }
       
       resetPassword(id: BigInt, password: string, idUserLogin: BigInt, filterStatus: number): Promise<IAuthUser | IErrorResponse> {

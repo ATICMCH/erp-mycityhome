@@ -26,7 +26,7 @@ import PropietarioIcon from './Iconos/PropietarioIcon'
 import { FaBusinessTime, FaCalendarCheck, FaMailchimp } from "react-icons/fa";
 import { GoKey } from "react-icons/go";
 import { AiOutlineClear, AiOutlineContainer, AiOutlineSnippets, AiOutlineTeam, AiOutlineCalendar } from 'react-icons/ai'
-import { BiDevices } from 'react-icons/bi'
+import { BiDevices, BiLinkExternal } from 'react-icons/bi'
 import { MdMarkunreadMailbox } from 'react-icons/md'
 import ChatBot from './ChatBot'  // ← AGREGAR ESTE IMPORT
 
@@ -196,7 +196,7 @@ export const Layout = (props: JSONObject) => {
 }
 
 export const PropBox = (props: JSONObject) => {
-    const { isActive, propID, menuPath = undefined, key = 1, codeIcon = 'home' } = props
+    const { isActive, propID, menuPath = undefined, key = 1, codeIcon = 'home', openInNewTab = false } = props
 
     const getIcon = (key: any, codeIcon: string, isActive: any) => {
         switch(codeIcon) {
@@ -234,6 +234,8 @@ export const PropBox = (props: JSONObject) => {
                 return  <GoKey title='Llaves' color={isActive?'#0077bd':'white'} style={{border: 1}} size={35} />
             case 'calendario':
                 return <AiOutlineCalendar title='Calendario' color={isActive?'#0077bd':'white'} style={{border: 1}} size={35} />
+            case 'external':
+                return <BiLinkExternal title='ERP Task' color={isActive?'#0077bd':'white'} style={{border: 1}} size={35} />
             default:
                 return isActive ?   <CustomHouseIcoBlue key={`ch-${key}`} className='w-[2.4rem]' /> :
                                     <CustomHouseIcoWhite key={`ch-${key}`} className='w-[2.4rem]' />
@@ -241,7 +243,7 @@ export const PropBox = (props: JSONObject) => {
     }
 
     return (
-    <Link key={`ml-${key}`} href={menuPath ? menuPath : ('/propietario/' + (propID == 'Inicio' ? '' : propID))} className={'link-menu ' + (isActive ? 'c-bg-secondary' : 'c-bg-primary ') + ' ' + "mb-3 lg:rounded-l-2xl md:rounded-l-2xl lg:rounded-r-none md:rounded-r-none rounded-t-2xl pt-3 ml-[12%] flex flex-col items-center pr-1"} style={{ height: '5rem' }}>
+    <Link key={`ml-${key}`} href={menuPath ? menuPath : ('/propietario/' + (propID == 'Inicio' ? '' : propID))} {...(openInNewTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})} className={'link-menu ' + (isActive ? 'c-bg-secondary' : 'c-bg-primary ') + ' ' + "mb-3 lg:rounded-l-2xl md:rounded-l-2xl lg:rounded-r-none md:rounded-r-none rounded-t-2xl pt-3 ml-[12%] flex flex-col items-center pr-1"} style={{ height: '5rem' }}>
             { getIcon(key, codeIcon, isActive) }
             <h3 className={(isActive ? 'text-blue text-bold' : 'text-white')}>{propID}</h3>
         </Link>

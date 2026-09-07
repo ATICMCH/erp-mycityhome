@@ -1,0 +1,18 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# Dependencies / builds
+node_modules/
+.next/
+dist/
+build/
+next-env.d.ts
+*.tsbuildinfo
+
+# Local Postgres cluster created by scripts/pg.sh
+.pgdata/
+
+# Local tooling
+.mcp.json

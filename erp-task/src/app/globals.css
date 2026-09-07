@@ -1,0 +1,483 @@
+@import "tailwindcss";
+
+/*
+ * Built on the MBE brand palette.
+ *
+ * Blue Stone (#005360) is the accent, used exactly as the brand specifies. The
+ * neutrals carry its hue (188deg) at very low saturation rather than being
+ * plain grey -- that is what makes the palette read as one system instead of a
+ * brand colour dropped onto a stock theme.
+ *
+ * The brand's secondaries are print colours, given in Pantone and CMYK, and
+ * three of them are unusable as screen text: lime green, the tan neutral and
+ * the grey all land near 2:1 on white, where 4.5:1 is the floor. So each
+ * semantic colour is a *shade of the brand hue* rather than the brand swatch
+ * itself -- the raw swatches stay for fills and washes, where their lightness
+ * is the point. Deep Red needed no adjustment at all.
+ *
+ * The accent stays separate from the run/pause/stall family, so "this is
+ * interactive" never reads as "this is a state".
+ *
+ * Every foreground/background pair below clears WCAG AA (4.5:1, and 7:1 for
+ * body text) in *both* modes -- the light theme had four failing pairs before
+ * this and the dark one had never been checked.
+ */
+@theme {
+  /*
+   * light-dark(light, dark) -- one line per token instead of two palettes.
+   *
+   * Which half applies is decided entirely by `color-scheme` on :root, set
+   * below. That is what lets the theme be a choice as well as an OS setting:
+   * a third copy of these seventeen values, under a [data-theme] selector,
+   * would otherwise be the only way to override the media query.
+   */
+  --color-canvas: light-dark(#f2f4f5, #0f1617);
+  --color-surface: light-dark(#ffffff, #182123);
+  --color-surface-2: light-dark(#f8f9f9, #212c2e);
+  --color-line: light-dark(#e7ebeb, #313f41);
+  --color-line-strong: light-dark(#c7d0d1, #4a5c5e);
+  --color-ink: light-dark(#142224, #e8eded);
+  --color-muted: light-dark(#55696d, #a5b3b6);
+  --color-faint: light-dark(#627578, #859699);
+  /* Blue Stone, exactly as the brand book gives it -- 8.73:1 on white. Too
+     dark to be an accent on a dark ground, so after dark it is Blue Stone's
+     hue lifted: the one place the swatch cannot be used literally. */
+  --color-accent: light-dark(#005360, #75bcc7);
+  --color-accent-ink: light-dark(#ffffff, #0f1617);
+  --color-accent-wash: light-dark(#ebf6f7, #223b3f);
+  /* Lime Green's hue, darkened until it is legible. */
+  --color-run: light-dark(#277e33, #72ca7e);
+  --color-run-wash: light-dark(#ebf7ec, #1d3421);
+  /* The Neutral tan's hue, likewise. */
+  --color-pause: light-dark(#876838, #cdb184);
+  --color-pause-wash: light-dark(#f7f2eb, #362e21);
+  /* Deep Red, unchanged in light -- already 13.63:1. */
+  --color-stall: light-dark(#600a00, #d27a70);
+  --color-stall-wash: light-dark(#f7eceb, #38211e);
+  --color-done: light-dark(#6c6c6c, #8e8585);
+
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* A small, deliberate type scale. Everything should land on one of these. */
+  --text-micro: 0.6875rem; /* 11px — uppercase labels only */
+  --text-tiny: 0.75rem; /* 12px — meta, badges */
+  --text-small: 0.8125rem; /* 13px — secondary text, controls */
+  --text-body: 0.875rem; /* 14px — the default */
+  --text-lead: 1rem; /* 16px — card titles */
+  --text-title: 1.375rem; /* 22px — page titles */
+
+  /*
+   * The half-steps the redesign asks for. The scale was six values; the
+   * design lands on thirteen. They go here rather than as arbitrary values
+   * at the call sites so the scale stays enumerable -- the next sub-project
+   * needs somewhere to put a number, and "whatever the design said" is not
+   * somewhere.
+   */
+  --text-nano: 0.625rem; /* 10px — pills, nav group headings */
+  --text-mini: 0.65625rem; /* 10.5px — badges, timestamps */
+  --text-label: 0.71875rem; /* 11.5px — role lines, notes */
+  --text-meta: 0.78125rem; /* 12.5px — secondary values */
+  --text-cell: 0.84375rem; /* 13.5px — nav links, table cells */
+  --text-card: 1.3125rem; /* 21px — running-task name */
+  --text-kpi: 1.5625rem; /* 25px — KPI numbers */
+  --text-stopwatch: 2.875rem; /* 46px — the stopwatch, and only that */
+
+  /* The design's radii, which are a step softer than what was here: cards
+     were 8 and controls 6. Changing the tokens rather than the call sites
+     means every card and button in the app moves together. */
+  --radius-card: 10px;
+  --radius-control: 8px;
+  --radius-nav: 7px;
+  --radius-pop: 12px;
+
+  /* Tinted with the ink rather than pure black, so shadows sit in the same
+     colour world as everything else instead of greying it down. */
+  --shadow-card: 0 1px 2px rgb(20 34 36 / 0.04), 0 1px 3px rgb(20 34 36 / 0.06);
+  --shadow-raised: 0 2px 4px rgb(20 34 36 / 0.05), 0 8px 20px rgb(20 34 36 / 0.08);
+}
+
+/*
+ * The whole light/dark switch, in three declarations.
+ *
+ * `color-scheme` is what resolves every light-dark() above, so this is not
+ * optional decoration -- without it the palette has no idea which half to
+ * use. It also fixes what CSS variables alone never could: the browser's own
+ * scrollbars, form controls, spinners and autofill backgrounds, which used to
+ * stay stubbornly light on a dark page.
+ *
+ * `data-theme` is stamped on <html> by the root layout, server-side, from the
+ * cookie -- so a chosen theme is already correct in the first painted frame.
+ * No inline script, no flash of the wrong palette. Nothing at all is set for
+ * SYSTEM, which is why the default below has to be the two-value form.
+ */
+:root { color-scheme: light dark; }
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  /* Gantari is the brand's complementary face and is on Google Fonts. Avenir
+     Next, the primary, is not freely licensed, so the system stack stands in
+     for it if Gantari fails to load. */
+  font-family: var(--font-gantari), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+  font-size: var(--text-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Every clock time, duration and counter lines up like a timesheet. */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Carrying the brand through the small things the browser draws for us. */
+::selection {
+  background: var(--color-accent-wash);
+  color: var(--color-accent);
+}
+
+/* The sidebar scrolls independently; a default scrollbar in it is the one
+   piece of chrome that would still look stock. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+@keyframes throb {
+  50% { opacity: 0.35; }
+}
+.throb { animation: throb 1.8s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .throb { animation: none; }
+  * { transition-duration: 0.01ms !important; }
+}
+
+/*
+ * Component classes live in the components layer so plain Tailwind utilities
+ * still win when a one-off needs to override them.
+ */
+@layer components {
+  /* ------------------------------------------------------------ headings */
+
+  .page-title {
+    font-size: var(--text-title);
+    font-weight: 620;
+    letter-spacing: -0.021em;
+    line-height: 1.2;
+    text-wrap: balance;
+  }
+
+  .page-sub {
+    margin-top: 0.25rem;
+    font-size: var(--text-small);
+    color: var(--color-muted);
+  }
+
+  /* Small uppercase label. Used for section headers and field labels. */
+  .eyebrow {
+    font-size: var(--text-micro);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-faint);
+  }
+
+  /*
+   * The sidebar's group headings. Quieter than .eyebrow rather than louder:
+   * the rule and the space above them already say "new section", so the
+   * label only has to name it. Wider tracking at this size keeps three or
+   * four capitals from reading as an abbreviation.
+   */
+  .nav-group {
+    font-size: 0.625rem; /* 10px */
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-faint);
+  }
+
+  /* --------------------------------------------------------------- cards */
+
+  .card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .card-body { padding: 1rem; }
+
+  /* ------------------------------------------------------------- buttons */
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    padding: 0.4375rem 0.75rem;
+    font-size: var(--text-small);
+    font-weight: 550;
+    line-height: 1.2;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--color-line-strong);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    cursor: pointer;
+    transition: background-color 120ms ease, border-color 120ms ease,
+      color 120ms ease;
+    white-space: nowrap;
+  }
+  .btn:hover:not(:disabled) {
+    background: var(--color-surface-2);
+    border-color: var(--color-faint);
+  }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .btn-primary {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: var(--color-accent-ink);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-accent) 88%, black);
+    border-color: color-mix(in srgb, var(--color-accent) 88%, black);
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    border-color: var(--color-stall);
+    color: var(--color-stall);
+    background: var(--color-stall-wash);
+  }
+
+  /* Quieter than .btn — for repeated row actions. */
+  .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: var(--text-tiny);
+    font-weight: 500;
+  }
+
+  /* -------------------------------------------------------------- fields */
+
+  .field {
+    width: 100%;
+    padding: 0.4375rem 0.625rem;
+    font-size: var(--text-small);
+    font-family: inherit;
+    color: var(--color-ink);
+    background: var(--color-surface);
+    border: 1px solid var(--color-line-strong);
+    border-radius: var(--radius-control);
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+  }
+  .field:hover { border-color: var(--color-faint); }
+  .field:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 14%, transparent);
+  }
+  .field::placeholder { color: var(--color-faint); }
+
+  .field-label {
+    display: block;
+    margin-bottom: 0.3125rem;
+    font-size: var(--text-micro);
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--color-faint);
+  }
+
+  /* -------------------------------------------------------------- badges */
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.0625rem 0.375rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-radius: 4px;
+    border: 1px solid var(--color-line);
+    color: var(--color-faint);
+    background: var(--color-surface);
+    white-space: nowrap;
+  }
+  .badge-accent { border-color: var(--color-accent); color: var(--color-accent); }
+  .badge-warn { border-color: var(--color-pause); color: var(--color-pause); }
+  .badge-stop { border-color: var(--color-stall); color: var(--color-stall); }
+  .badge-go { border-color: var(--color-run); color: var(--color-run); }
+
+  /* -------------------------------------------------------------- states */
+
+  .empty {
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+    font-size: var(--text-small);
+    color: var(--color-muted);
+    border: 1px dashed var(--color-line-strong);
+    border-radius: var(--radius-card);
+    background: color-mix(in srgb, var(--color-surface) 60%, transparent);
+  }
+
+  .notice {
+    padding: 0.5rem 0.8125rem;
+    border-radius: var(--radius-control);
+    border: 1px solid;
+    font-size: var(--text-small);
+  }
+  .notice-ok {
+    border-color: var(--color-run);
+    background: var(--color-run-wash);
+    color: var(--color-run);
+  }
+  .notice-bad {
+    border-color: var(--color-stall);
+    background: var(--color-stall-wash);
+    color: var(--color-stall);
+  }
+  .notice-warn {
+    border-color: var(--color-pause);
+    background: var(--color-pause-wash);
+    color: var(--color-ink);
+  }
+
+  /* ---------------------------------------------------------------- tone */
+
+  /*
+   * One custom property instead of a variant per colour.
+   *
+   * Everything below reads --tone, and a wash-filled thing also reads
+   * --tone-wash. A caller sets them to a semantic pair:
+   *
+   *   <span className="pill" style={{ "--tone": "var(--color-run)" }} />
+   *
+   * so run / pause / stall / accent cost nothing per class, and a
+   * sixth tone later costs nothing at all.
+   */
+
+  /* The 3px spine down the left of a card that says which state it is in. */
+  .rail { border-left: 3px solid var(--tone, var(--color-line)); }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.0625rem 0.5rem;
+    border: 1px solid var(--tone, var(--color-line));
+    border-radius: 999px;
+    color: var(--tone, var(--color-faint));
+    font-size: var(--text-mini);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  /* The square in a plan or calendar cell. Sized by its caller, since the
+     matrix and the calendar want different shapes. */
+  .chip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--tone, var(--color-line));
+    border-radius: 4px;
+    background: var(--tone-wash, transparent);
+    font-size: var(--text-mini);
+    font-weight: 600;
+    color: var(--tone, var(--color-faint));
+  }
+
+  .track {
+    overflow: hidden;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--color-line);
+  }
+  .track-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--tone, var(--color-accent));
+    /* Long enough to read as movement rather than a jump; the suppression
+       rule at the top of this file overrides it under reduced motion. */
+    transition: width 500ms ease;
+  }
+
+  .stopwatch {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    font-size: var(--text-stopwatch);
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  .kpi-value {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    font-size: var(--text-kpi);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--tone, var(--color-ink));
+  }
+
+  .popover {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-pop);
+    box-shadow: var(--shadow-raised);
+  }
+
+  /* ------------------------------------------------------------- tables */
+
+  .table-erp { width: 100%; border-collapse: collapse; }
+
+  .table-erp thead th {
+    padding: 0.5rem 0.875rem;
+    background: var(--color-surface-2);
+    border-bottom: 1px solid var(--color-line);
+    font-size: var(--text-micro);
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--color-faint);
+    text-align: left;
+  }
+
+  .table-erp tbody td {
+    padding: 0.625rem 0.875rem;
+    border-bottom: 1px solid var(--color-line);
+    font-size: var(--text-cell);
+  }
+
+  /* The card already draws the closing edge. */
+  .table-erp tbody tr:last-child td { border-bottom: 0; }
+  .table-erp tbody tr:hover td { background: var(--color-surface-2); }
+}

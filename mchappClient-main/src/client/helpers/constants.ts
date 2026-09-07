@@ -17,6 +17,23 @@ export const ALERT_MSG_MOVER_LEADS = '¿Está seguro de mover los leads?'
 export const ALERT_MSG_CONFIR_RESET_PASSWORD = `¿Está seguro de resetear el password?`
 export const ALERT_MSG_RESET_PASSWORD_OK = `El password ha sido reseteado exitosamente!`
 
+// ERP Task: proyecto nuevo (gestión de tareas, RRHH, CRM), todavía aparte de
+// este frontend. En local corre en localhost:3000; en producción, cuando se
+// despliegue, cambiar NEXT_PUBLIC_ERP_TASK_URL en el .env de este proyecto.
+export const ERP_TASK_URL = process.env.NEXT_PUBLIC_ERP_TASK_URL || 'http://localhost:3000'
+
+// Enlace de menú a ERP Task. Mismo objeto en todos los roles: abre en pestaña
+// nueva porque es una app aparte, no una ruta interna de este frontend.
+export const menu_item_erp_task: MenuLeftType = {
+    key: 'erp_task_link',
+    isActive: false,
+    propID: 'ERP Task',
+    order: 999,
+    menuPath: ERP_TASK_URL,
+    codeIcon: 'external',
+    openInNewTab: true,
+}
+
 export const ADMIN_USERS_PATH = '/api/admin/users'
 export const RRHH_USERS_PATH = '/api/rrhh/users'
 export const SHARE_PROFILE_PATH = '/api/share/profile'
@@ -177,6 +194,7 @@ export const menu_dn: Array<MenuLeftType> = [
     { key: 'dn_myleads', isActive: false, propID: 'Mis Leads', order: 6, menuPath: '/dn/myleads', codeIcon: 'na' },
     { key: 'dn_solicitudes', isActive: false, propID: 'Solicitudes', order: 7, menuPath: '/dn/solicitudes', codeIcon: 'solicitudes' },
 
+    menu_item_erp_task,
 ]
 
 // Menu lateral dn_aster
@@ -196,6 +214,7 @@ export const menu_dn_master: Array<MenuLeftType> = [
     { key: 'dn_master_solicitudes', isActive: false, propID: 'Solicitudes', order: 7, menuPath: '/dnmaster/solicitudes', codeIcon: 'solicitudes' },
 
 
+    menu_item_erp_task,
 ]
 
 // Menu lateral ceo
@@ -203,6 +222,7 @@ export const menu_ceo: Array<MenuLeftType> = [
     { key: 'ceo_home', isActive: false, propID: 'Inicio', order: 1, menuPath: '/ceo', codeIcon: 'home' },
     { key: 'ceo_apartments', isActive: false, propID: 'Pisos', order: 2, menuPath: '/ceo/apartments', codeIcon: 'apartment' },
     // { key: 'ceo_myleads', isActive: false, propID: 'Mis Leads', order: 3, menuPath: '/ceo/myleads', codeIcon: 'home' },
+    menu_item_erp_task,
 ]
 
 export const menu_rrhh: Array<MenuLeftType> = [
@@ -213,6 +233,7 @@ export const menu_rrhh: Array<MenuLeftType> = [
     { key: 'rrhh_contactos_universidad', isActive: false, propID: 'Universidades', order: 5, menuPath: '/rrhh/contactos-universidad', codeIcon: 'user' },
     { key: 'rrhh_solicitudes', isActive: false, propID: 'Solicitudes', order: 7, menuPath: '/rrhh/solicitudes', codeIcon: 'solicitudes' },
 
+    menu_item_erp_task,
 ]
 
 export const menu_rrhh_master: Array<MenuLeftType> = [
@@ -231,16 +252,19 @@ export const menu_rrhh_master: Array<MenuLeftType> = [
     { key: 'rrhh_master_vacaciones', isActive: false, propID: 'Vacaciones', order: 10, menuPath: '/rrhhmaster/vacaciones', codeIcon: 'vacaciones' },
     { key: 'rrhh_master_solicitudes', isActive: false, propID: 'Solicitudes', order: 7, menuPath: '/rrhhmaster/solicitudes', codeIcon: 'solicitudes' },
 
+    menu_item_erp_task,
 ]
 
 export const menu_superadmin: Array<MenuLeftType> = [
     { key: 'superadmin_home', isActive: false, propID: 'Inicio', order: 1, menuPath: '/superadmin', codeIcon: 'home' },
     { key: 'share_office', isActive: false, propID: 'Oficina', order: 2, menuPath: '/superadmin/office', codeIcon: 'office' },
     { key: 'superadmin_users', isActive: false, propID: 'Usuarios', order: 3, menuPath: '/superadmin/users/', codeIcon: 'user' },
+    menu_item_erp_task,
 ]
 
 export const menu_propietario: Array<MenuLeftType> = [
     { key: 'propietario_home', isActive: false, propID: 'Inicio', order: 1, menuPath: '/propietario', codeIcon: 'home' },
+    menu_item_erp_task,
 ]
 
 export const menu_crm: Array<MenuLeftType> = [
@@ -250,6 +274,7 @@ export const menu_crm: Array<MenuLeftType> = [
     { key: 'crm_apartments', isActive: false, propID: 'Pisos', order: 4, menuPath: '/crm/apartments', codeIcon: 'apartment' },
     { key: 'crm_solicitudes', isActive: false, propID: 'Solicitudes', order: 7, menuPath: '/crm/solicitudes', codeIcon: 'solicitudes' },
 
+    menu_item_erp_task,
 ]
 
 export const menu_crm_master: Array<MenuLeftType> = [
@@ -259,6 +284,7 @@ export const menu_crm_master: Array<MenuLeftType> = [
     { key: 'crm_apartments', isActive: false, propID: 'Pisos', order: 4, menuPath: '/crmmaster/apartments', codeIcon: 'apartment' },
     { key: 'crm_solicitudes', isActive: false, propID: 'Solicitudes', order: 7, menuPath: '/crmmaster/solicitudes', codeIcon: 'solicitudes' },
 
+    menu_item_erp_task,
 ]
 
 export const menu_ade: Array<MenuLeftType> = [
@@ -269,6 +295,7 @@ export const menu_ade: Array<MenuLeftType> = [
     { key: 'ade_reports', isActive: false, propID: 'Reportes', order: 5, menuPath: '/ade/reports', codeIcon: 'reports' },
     { key: 'ade_solicitudes', isActive: false, propID: 'Solicitudes', order: 7, menuPath: '/ade/solicitudes', codeIcon: 'solicitudes' },
 
+    menu_item_erp_task,
 ]
 
 export const menu_ade_master: Array<MenuLeftType> = [
@@ -279,6 +306,7 @@ export const menu_ade_master: Array<MenuLeftType> = [
     { key: 'ade_reports', isActive: false, propID: 'Reportes', order: 5, menuPath: '/ademaster/reports', codeIcon: 'reports' },
     { key: 'ade_solicitudes', isActive: false, propID: 'Solicitudes', order: 7, menuPath: '/ademaster/solicitudes', codeIcon: 'solicitudes' },
 
+    menu_item_erp_task,
 ]
 
 export const menu_atic: Array<MenuLeftType> = [
@@ -292,6 +320,7 @@ export const menu_atic: Array<MenuLeftType> = [
     { key: 'atic_solicitudes', isActive: false, propID: 'Solicitudes', order: 7, menuPath: '/atic/solicitudes', codeIcon: 'solicitudes' },
     { key: 'atic_calendario', isActive: false, propID: 'Calendario', order: 8, menuPath: '/atic/calendario', codeIcon: 'calendario' },
 
+    menu_item_erp_task,
 ]
 
 export const menu_atic_master: Array<MenuLeftType> = [
@@ -305,6 +334,7 @@ export const menu_atic_master: Array<MenuLeftType> = [
     { key: 'atic_solicitudes', isActive: false, propID: 'Solicitudes', order: 7, menuPath: '/aticmaster/solicitudes', codeIcon: 'solicitudes' },
     { key: 'atic_calendario', isActive: false, propID: 'Calendario', order: 8, menuPath: '/aticmaster/calendario', codeIcon: 'calendario' },
 
+    menu_item_erp_task,
 ]
 
 export const menu_rmg: Array<MenuLeftType> = [
@@ -313,6 +343,7 @@ export const menu_rmg: Array<MenuLeftType> = [
     { key: 'rmg_apartments', isActive: false, propID: 'Pisos', order: 3, menuPath: '/rmg/apartments/', codeIcon: 'apartment' },
     { key: 'rmg_solicitudes', isActive: false, propID: 'Solicitudes', order: 7, menuPath: '/rmg/solicitudes', codeIcon: 'solicitudes' },
 
+    menu_item_erp_task,
 ]
 
 export const menu_rmg_master: Array<MenuLeftType> = [
@@ -321,6 +352,7 @@ export const menu_rmg_master: Array<MenuLeftType> = [
     { key: 'rmg_apartments', isActive: false, propID: 'Pisos', order: 3, menuPath: '/rmgmaster/apartments/', codeIcon: 'apartment' },
     { key: 'rmg_solicitudes', isActive: false, propID: 'Solicitudes', order: 7, menuPath: '/rmgmaster/solicitudes', codeIcon: 'solicitudes' },
 
+    menu_item_erp_task,
 ]
 
 export const menu_da: Array<MenuLeftType> = [
@@ -329,6 +361,7 @@ export const menu_da: Array<MenuLeftType> = [
     { key: 'da_solicitudes', isActive: false, propID: 'Solicitudes', order: 7, menuPath: '/da/solicitudes', codeIcon: 'solicitudes' },
 
     // { key: 'da_inventario', isActive: false, propID: 'Inventario', order: 4, menuPath: '/da/', codeIcon: 'na' },
+    menu_item_erp_task,
 ]
 
 export const menu_da_master: Array<MenuLeftType> = [
@@ -336,11 +369,13 @@ export const menu_da_master: Array<MenuLeftType> = [
     { key: 'da_apartments', isActive: false, propID: 'Pisos', order: 3, menuPath: '/damaster/apartments/', codeIcon: 'apartment' },
     { key: 'da_solicitudes', isActive: false, propID: 'Solicitudes', order: 7, menuPath: '/damaster/solicitudes', codeIcon: 'solicitudes' },
 
+    menu_item_erp_task,
 ]  // { key: 'da_inventario', isActive: false, propID: 'Inventario', order: 4, menuPath: '/da/', codeIcon: 'na' },
 
 export const menu_colaborador: Array<MenuLeftType> = [
     { key: 'col_home', isActive: false, propID: 'Inicio', order: 1, menuPath: '/colaborador', codeIcon: 'home' },
     { key: 'col_apartments', isActive: false, propID: 'Pisos', order: 3, menuPath: '/colaborador/apartments/', codeIcon: 'apartment' },
+    menu_item_erp_task,
 ]
 
 // Para cada ruta (o patrón de ruta), qué roles pueden ver el PDF

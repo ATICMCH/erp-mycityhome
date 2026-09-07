@@ -127,6 +127,18 @@ class Util {
       }
 
       /**
+       * Hash Argon2id de una contraseña en texto plano, para la tabla puente
+       * tbl_nuevo_login_erp (futuro login único). No sustituye el hash SHA-256
+       * de tbl_usuario.password: se calcula aparte, solo en el momento del
+       * login, porque el SHA-256 no se puede revertir a texto plano.
+       * @param plainPassword
+       */
+      async hashArgon2(plainPassword: string): Promise<string> {
+            const { hash } = await import('@node-rs/argon2')
+            return hash(plainPassword)
+      }
+
+      /**
        * Indica si el usuario tiene rol, ademas indicia si tiene 1 o varios
        * retorna arreglo 2 dimensiones:
        * Posicion 1 -> indica si el usuario tiene role

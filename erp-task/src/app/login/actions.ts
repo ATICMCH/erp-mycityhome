@@ -1,0 +1,71 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { z } from "zod";
+import { prisma } from "@/lib/db";
+import { verifyPassword } from "@/lib/auth/password";
+import { createSession, destroySession } from "@/lib/auth/session";
+import { getLoginT } from "@/lib/i18n/server";
+import { markArrival, markDeparture } from "@/lib/attendance/attendance-db";
+import { getSessionUser } from "@/lib/auth/session";
+import { syncLoginBridge, tryBridgeLogin } from "@/lib/auth/login-bridge-db";
+
+// Keys, not sentences: the wording is resolved once the locale is known.
+const LoginInput = z.object({
+  username: z.string().trim().min(1, "login.enterUsername"),
+  password: z.string().min(1, "login.enterPassword"),
+});
+
+export type LoginState = { error?: string };
+
+export async function login(
+  _prev: LoginState,
+  formData: FormData,
+): Promise<LoginState> {
+  const { t } = await getLoginT();
+
+  const parsed = LoginInput.safeParse({
+    username: formData.get("username"),
+    password: formData.get("password"),
+  });
+
+  if (!parsed.success) {
+    return { error: t(parsed.error.issues[0].message) };
+  }
+
+  let user = await prisma.user.findUnique({
+    where: { username: parsed.data.username.toLowerCase() },
+  });
+
+  // Same message whether the username is unknown or the password is wrong --
+  // no point telling an attacker which usernames exist.
+  const invalid = { error: t("login.wrongDetails") };
+
+  if (user && user.active) {
+    const ok = await verifyPassword(user.passwordHash, parsed.data.password);
+    if (!ok) return invalid;
+  } else {
+    // Not a local account (or deactivated) -- try the mycityhome side of the
+    // login bridge before giving up. Provisions a local User on first success.
+    const bridged = await tryBridgeLogin(parsed.data.username, parsed.data.password);
+    if (!bridged) return invalid;
+    user = bridged;
+  }
+
+  await syncLoginBridge(user);
+  await createSession(user.id);
+  // The first signal of the workday. Only fills a blank, so signing in again
+  // after lunch never rewrites the morning.
+  await markArrival(user.id, "LOGIN");
+  redirect("/my-day");
+}
+
+export async function logout(): Promise<void> {
+  // Before destroySession(), which deletes the session row -- until this was
+  // added, signing out left no trace at all.
+  const user = await getSessionUser();
+  if (user) await markDeparture(user.id);
+
+  await destroySession();
+  redirect("/login");
+}
